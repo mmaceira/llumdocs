@@ -1,0 +1,49 @@
+[project]
+name = "llumdocs"
+version = "0.1.0"
+description = "LlumDocs: plataforma per transformar i entendre documents amb IA"
+authors = [
+  { name = "Marc Maceira" },
+]
+requires-python = ">=3.12"
+dependencies = [
+  "litellm>=1.0.0",
+  "openai>=1.0.0",
+  "gradio",
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "python-dotenv",
+  "httpx",
+  "numpy",
+  "Pillow",
+  "gradio",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit",
+  "ruff",
+  "black",
+  "pytest",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "I", "B"]
+ignore = ["E203", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["llumdocs"]
+combine-as-imports = true
