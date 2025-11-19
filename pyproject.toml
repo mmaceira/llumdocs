@@ -47,7 +47,6 @@ target-version = "py312"
 
 [tool.ruff.lint]
 extend-select = ["E", "F", "I", "B"]
-ignore = ["E203", "E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["llumdocs"]

@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from llumdocs.api.app import create_app
+from llumdocs.services.image_description_service import ImageDescriptionError
 from llumdocs.services.text_transform_service import TextTransformError
 from llumdocs.services.translation_service import TranslationError
 
@@ -115,3 +116,110 @@ def test_translation_endpoint_error(monkeypatch, client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "unsupported language"
+
+
+def test_image_describe_endpoint_success(monkeypatch, client):
+    monkeypatch.setattr(
+        "llumdocs.api.image_endpoints.describe_image",
+        lambda *_, **__: "A beautiful landscape with mountains and trees",
+    )
+
+    # Create a simple test image
+    from io import BytesIO
+
+    from PIL import Image
+
+    img = Image.new("RGB", (100, 100), color="red")
+    img_bytes = BytesIO()
+    img.save(img_bytes, format="JPEG")
+    img_bytes.seek(0)
+
+    response = client.post(
+        "/api/images/describe",
+        files={"image": ("test.jpg", img_bytes, "image/jpeg")},
+        data={"detail_level": "short", "max_size": 512, "model": None},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"description": "A beautiful landscape with mountains and trees"}
+
+
+def test_image_describe_endpoint_detailed(monkeypatch, client):
+    monkeypatch.setattr(
+        "llumdocs.api.image_endpoints.describe_image",
+        lambda *_, **__: "Detailed description of the image",
+    )
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    img = Image.new("RGB", (100, 100), color="blue")
+    img_bytes = BytesIO()
+    img.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+
+    response = client.post(
+        "/api/images/describe",
+        files={"image": ("test.png", img_bytes, "image/png")},
+        data={"detail_level": "detailed", "max_size": 1024},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"description": "Detailed description of the image"}
+
+
+def test_image_describe_endpoint_rejects_non_image(monkeypatch, client):
+    from io import BytesIO
+
+    # Send a text file instead of an image
+    text_file = BytesIO(b"This is not an image")
+
+    response = client.post(
+        "/api/images/describe",
+        files={"image": ("test.txt", text_file, "text/plain")},
+        data={"detail_level": "short"},
+    )
+
+    assert response.status_code == 400
+    assert "image" in response.json()["detail"].lower()
+
+
+def test_image_describe_endpoint_rejects_empty_file(client):
+    from io import BytesIO
+
+    empty_file = BytesIO(b"")
+
+    response = client.post(
+        "/api/images/describe",
+        files={"image": ("empty.jpg", empty_file, "image/jpeg")},
+        data={"detail_level": "short"},
+    )
+
+    assert response.status_code == 400
+    assert "empty" in response.json()["detail"].lower()
+
+
+def test_image_describe_endpoint_error(monkeypatch, client):
+    def fake_describe(*_, **__):
+        raise ImageDescriptionError("invalid detail level")
+
+    monkeypatch.setattr("llumdocs.api.image_endpoints.describe_image", fake_describe)
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    img = Image.new("RGB", (100, 100), color="green")
+    img_bytes = BytesIO()
+    img.save(img_bytes, format="JPEG")
+    img_bytes.seek(0)
+
+    response = client.post(
+        "/api/images/describe",
+        files={"image": ("test.jpg", img_bytes, "image/jpeg")},
+        data={"detail_level": "short"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid detail level"

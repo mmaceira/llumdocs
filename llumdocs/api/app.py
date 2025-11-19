@@ -7,6 +7,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from llumdocs.api.image_endpoints import router as image_router
 from llumdocs.api.text_tools_endpoints import router as text_tools_router
 from llumdocs.api.translation_endpoints import router as translation_router
 
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
 
     app.include_router(translation_router)
     app.include_router(text_tools_router)
+    app.include_router(image_router)
 
     @app.get("/health")
     async def health():

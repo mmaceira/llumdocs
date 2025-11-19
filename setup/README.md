@@ -1,6 +1,6 @@
 # LiteLLM Setup Example
 
-This folder contains a simple example setup for using LiteLLM with Ollama (llama3.1:8b) and OpenAI.
+This folder contains a simple example setup for using LiteLLM with Ollama (llama3.1:8b, qwen3-vl:8b) and OpenAI.
 
 ## Prerequisites
 
@@ -12,10 +12,19 @@ Visit [https://ollama.ai](https://ollama.ai) and install Ollama for your system:
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
-Then pull the llama3.1:8b model:
+Then pull the models you need:
+
+**For text processing (translation, summaries, etc.):**
 ```bash
 ollama pull llama3.1:8b
 ```
+
+**For image description (vision model):**
+```bash
+ollama pull qwen3-vl:8b
+```
+
+> **Note:** The qwen3-vl:8b model requires Ollama 0.12.7 or later. Make sure you have the latest version of Ollama installed.
 
 Make sure Ollama is running:
 ```bash
@@ -36,13 +45,19 @@ This should show that port 11434 is in use by the Ollama service.
 ```bash
 ollama list
 ```
-This should show `llama3.1:8b` (or any other models you've pulled).
+This should show `llama3.1:8b` and/or `qwen3-vl:8b` (or any other models you've pulled).
 
-3. **Test the model interactively**:
+3. **Test the text model interactively**:
 ```bash
 ollama run llama3.1:8b
 ```
 This will start an interactive chat session with the model. Type a message and press Enter to test. Type `/bye` or press Ctrl+D to exit.
+
+4. **Test the vision model interactively**:
+```bash
+ollama run qwen3-vl:8b
+```
+You can test image description capabilities with this model.
 
 ### 2. OpenAI API Key (Optional)
 
@@ -142,10 +157,25 @@ You can also use LiteLLM directly in your code:
 ```python
 from litellm import completion
 
-# Ollama example
+# Ollama text model example
 response = completion(
     model="ollama/llama3.1:8b",
     messages=[{"role": "user", "content": "Your message here"}],
+    api_base="http://localhost:11434"
+)
+print(response.choices[0].message.content)
+
+# Ollama vision model example (for image description)
+# Note: Vision models require image data in the messages
+response = completion(
+    model="ollama/qwen3-vl:8b",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Describe this image"},
+            {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+        ]
+    }],
     api_base="http://localhost:11434"
 )
 print(response.choices[0].message.content)
@@ -167,8 +197,9 @@ print(response.choices[0].message.content)
 ## LiteLLM Model Format
 
 LiteLLM uses a simple format to specify models:
-- Ollama: `ollama/llama3.1:8b`
-- OpenAI: `gpt-3.5-turbo`, `gpt-4`, etc.
+- Ollama (text): `ollama/llama3.1:8b`
+- Ollama (vision): `ollama/qwen3-vl:8b`
+- OpenAI: `gpt-3.5-turbo`, `gpt-4`, `o4-mini`, etc.
 
 ## Configuration
 

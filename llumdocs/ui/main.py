@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import gradio as gr
 
-from llumdocs.llm import LLMConfigurationError, available_models
+from llumdocs.llm import LLMConfigurationError, available_models, available_vision_models
+from llumdocs.services.image_description_service import (
+    ImageDescriptionError,
+    describe_image,
+)
 from llumdocs.services.text_transform_service import (
     TextTransformError,
     extract_keywords,
@@ -35,8 +39,8 @@ FEATURES = [
         "description": "Short, detailed, or executive",
     },
     {"label": "Keyword extraction", "available": True, "description": "Top key concepts"},
+    {"label": "Image description", "available": True, "description": "Describe images with AI"},
     {"label": "Invoice data extraction", "available": False, "description": "Coming soon"},
-    {"label": "Image description", "available": False, "description": "Coming soon"},
     {"label": "Document classification", "available": False, "description": "Coming soon"},
 ]
 
@@ -104,6 +108,11 @@ def create_interface() -> gr.Blocks:
     model_choices = available_models()
     model_labels = [label for label, _ in model_choices] or ["No providers available"]
     model_map = dict(model_choices)
+
+    vision_model_choices = available_vision_models()
+    vision_model_labels = [label for label, _ in vision_model_choices] or ["No providers available"]
+    vision_model_map = dict(vision_model_choices)
+
     source_map = {label: code for label, code in LANGUAGE_OPTIONS}
     default_feature = next(
         (feature["label"] for feature in FEATURES if feature["available"]), FEATURES[0]["label"]
@@ -116,6 +125,14 @@ def create_interface() -> gr.Blocks:
         model_id = model_map.get(model_label)
         if not model_id:
             return None, "Invalid model selection."
+        return model_id, ""
+
+    def _resolve_vision_model_id(model_label: str) -> tuple[str | None, str]:
+        if not vision_model_choices:
+            return None, "No vision LLM providers configured. Set up Ollama or OpenAI."
+        model_id = vision_model_map.get(model_label)
+        if not model_id:
+            return None, "Invalid vision model selection."
         return model_id, ""
 
     with gr.Blocks(title="LlumDocs", theme=gr.themes.Soft(), css=FEATURE_BUTTON_CSS) as demo:
@@ -132,7 +149,8 @@ def create_interface() -> gr.Blocks:
                 gr.Markdown("### LLM provider")
                 if not model_choices:
                     gr.Markdown(
-                        "⚠️ No models detected. Configure Ollama locally or set `OPENAI_API_KEY` before using the tools.",
+                        "⚠️ No models detected. Configure Ollama locally or set "
+                        "`OPENAI_API_KEY` before using the tools.",
                         elem_classes=["warning"],
                     )
 
@@ -169,7 +187,8 @@ def create_interface() -> gr.Blocks:
 
                 with gr.Column(visible=True) as translate_panel:
                     gr.Markdown(
-                        "Translate text between Catalan, Spanish, and English while preserving tone."
+                        "Translate text between Catalan, Spanish, and English "
+                        "while preserving tone."
                     )
                     translate_textbox = gr.Textbox(
                         label="Text to translate",
@@ -395,6 +414,75 @@ def create_interface() -> gr.Blocks:
                     )
 
                 panel_map["Simplify text (plain language)"] = plain_panel
+
+                with gr.Column(visible=False) as image_panel:
+                    gr.Markdown("Generate detailed descriptions of images using AI vision models.")
+                    image_upload = gr.Image(
+                        label="Upload image",
+                        type="filepath",
+                        height=400,
+                    )
+                    image_detail_level = gr.Radio(
+                        label="Detail level",
+                        choices=["short", "detailed"],
+                        value="short",
+                    )
+                    image_max_size = gr.Dropdown(
+                        label="Max image size (longest side)",
+                        choices=["128", "256", "512", "1024"],
+                        value="512",
+                        info="Larger sizes provide more detail but use more tokens",
+                    )
+                    vision_model_dropdown = gr.Dropdown(
+                        label="Vision model",
+                        choices=vision_model_labels,
+                        value=vision_model_labels[0] if vision_model_labels else None,
+                        interactive=bool(vision_model_choices),
+                    )
+                    image_button = gr.Button("Describe image", variant="primary")
+                    image_output = gr.Textbox(label="Description", lines=8, interactive=False)
+                    image_error = gr.Markdown("")
+
+                    def run_image_description(
+                        image_path: str | None,
+                        detail_level: str,
+                        max_size_str: str,
+                        model_label: str,
+                    ) -> tuple[str, str]:
+                        if not image_path:
+                            return "", "Please upload an image."
+                        model_id, err = _resolve_vision_model_id(model_label)
+                        if err:
+                            return "", err
+                        try:
+                            max_size = int(max_size_str)
+                            # Read image file as bytes
+                            with open(image_path, "rb") as f:
+                                image_bytes = f.read()
+                            result = describe_image(
+                                image_bytes,
+                                detail_level=detail_level,  # type: ignore[arg-type]
+                                max_size=max_size,
+                                model_hint=model_id,
+                            )
+                            return result, ""
+                        except ImageDescriptionError as exc:
+                            return "", str(exc)
+                        except Exception as exc:  # noqa: BLE001
+                            return "", f"Error: {exc}"
+
+                    image_button.click(
+                        fn=run_image_description,
+                        inputs=[
+                            image_upload,
+                            image_detail_level,
+                            image_max_size,
+                            vision_model_dropdown,
+                        ],
+                        outputs=[image_output, image_error],
+                    )
+
+                panel_map["Image description"] = image_panel
 
         panel_labels = list(panel_map.keys())
         panel_outputs = [panel_map[label] for label in panel_labels]

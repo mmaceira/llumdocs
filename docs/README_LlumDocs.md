@@ -26,7 +26,7 @@ LlumDocs offers a series of utilities accessible both via **graphical interface 
 
 The objective is to have **a single tool** that concentrates the most common operations on text, documents and images, without having to set up multiple dispersed services.
 
-> **Current status:** translation, document summaries, keyword extraction, and both rewrite utilities (technical + plain language) are fully wired in the API and Gradio UI. The roadmap still lists the remaining features as upcoming.
+> **Current status:** translation, document summaries, keyword extraction, image description, and both rewrite utilities (technical + plain language) are fully wired in the API and Gradio UI. The roadmap still lists the remaining features as upcoming.
 
 ---
 
@@ -126,9 +126,36 @@ The UI shows the same instruction given to the LLM so users know how translation
 ### Configuring LiteLLM
 
 - `LLUMDOCS_DEFAULT_MODEL`: optional explicit model identifier (e.g. `gpt-4o-mini`).
+- `LLUMDOCS_DEFAULT_VISION_MODEL`: optional explicit vision model identifier (e.g. `o4-mini`, `ollama/qwen3-vl:8b`).
 - `LLUMDOCS_DISABLE_OLLAMA=1`: skip the local Ollama backend.
 - `OLLAMA_API_BASE`: override the default `http://localhost:11434`.
 - `OPENAI_API_KEY`: enables OpenAI models.
+
+#### Setting up Ollama Models
+
+To use local Ollama models, you need to pull them first:
+
+**For text processing (translation, summaries, etc.):**
+```bash
+ollama pull llama3.1:8b
+```
+
+**For image description (vision model):**
+```bash
+ollama pull qwen3-vl:8b
+```
+
+> **Note:** The qwen3-vl:8b model requires Ollama 0.12.7 or later. Make sure you have the latest version of Ollama installed.
+
+Verify your models are available:
+```bash
+ollama list
+```
+
+Make sure Ollama is running:
+```bash
+ollama serve
+```
 
 ### Running Live Tests
 
@@ -138,7 +165,11 @@ By default the automated tests mock LLM calls. To exercise the real OpenAI and/o
    ```bash
    export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b"
    ```
-2. Ensure the corresponding providers are configured (`OPENAI_API_KEY`, local Ollama, etc.).
+   For vision model tests, you can also include:
+   ```bash
+   export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b,ollama/qwen3-vl:8b,o4-mini"
+   ```
+2. Ensure the corresponding providers are configured (`OPENAI_API_KEY`, local Ollama with models pulled, etc.).
 3. Execute the integration suite:
    ```bash
    uv run pytest tests/integration -m integration

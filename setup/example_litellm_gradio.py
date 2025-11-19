@@ -1,10 +1,11 @@
 """
-Gradio web interface example using LiteLLM with Ollama (llama3.1:8b) and OpenAI.
+Gradio web interface example using LiteLLM with Ollama (llama3.1:8b, qwen3-vl:8b) and OpenAI.
 
 Make sure you have:
 1. Ollama installed and running locally
 2. llama3.1:8b model pulled: `ollama pull llama3.1:8b`
-3. OpenAI API key set in environment variable: OPENAI_API_KEY (optional)
+3. qwen3-vl:8b model pulled (optional, for vision): `ollama pull qwen3-vl:8b`
+4. OpenAI API key set in environment variable: OPENAI_API_KEY (optional)
 
 Run with: python example_litellm_gradio.py
 """
@@ -97,8 +98,8 @@ def create_gradio_interface():
             # 🤖 LiteLLM Chat Interface
 
             Chat with different LLM providers using a unified interface:
-            - **Ollama** (llama3.1:8b) - Local model
-            - **OpenAI** (gpt-3.5-turbo, gpt-4) - Cloud API (if API key is set)
+            - **Ollama** (llama3.1:8b for text, qwen3-vl:8b for vision) - Local models
+            - **OpenAI** (gpt-3.5-turbo, gpt-4, o4-mini) - Cloud API (if API key is set)
 
             Select a model and start chatting!
             """
@@ -174,7 +175,10 @@ if __name__ == "__main__":
     if not models:
         print("\n⚠️  Warning: No models available!")
         print("Please set up at least one of:")
-        print("  1. Ollama: `ollama serve` and `ollama pull llama3.1:8b`")
+        print(
+            "  1. Ollama: `ollama serve` and `ollama pull llama3.1:8b` "
+            "(and `ollama pull qwen3-vl:8b` for vision)"
+        )
         print("  2. OpenAI: Set OPENAI_API_KEY environment variable")
 
     print("\n" + "=" * 50)

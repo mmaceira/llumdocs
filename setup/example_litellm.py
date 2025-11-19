@@ -1,10 +1,11 @@
 """
-Simple example using LiteLLM with Ollama (llama3.1:8b) and OpenAI.
+Simple example using LiteLLM with Ollama (llama3.1:8b, qwen3-vl:8b) and OpenAI.
 
 Make sure you have:
 1. Ollama installed and running locally
 2. llama3.1:8b model pulled: `ollama pull llama3.1:8b`
-3. OpenAI API key set in environment variable: OPENAI_API_KEY
+3. qwen3-vl:8b model pulled (optional, for vision): `ollama pull qwen3-vl:8b`
+4. OpenAI API key set in environment variable: OPENAI_API_KEY
 """
 
 import os
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     print("\nLiteLLM Setup Example")
     print("=" * 50)
     print("\nThis example demonstrates LiteLLM with:")
-    print("- Ollama (llama3.1:8b)")
+    print("- Ollama (llama3.1:8b for text, qwen3-vl:8b for vision)")
     print("- OpenAI\n")
 
     # Run examples
