@@ -1,0 +1,6 @@
+The regional emergency manual instructs field coordinators to activate the
+logistics bridge only after the incident commander signs the resource request
+form. It also states that mutual aid teams must maintain redundant satellite
+links and cross-check temperature-sensitive cargo every ninety minutes while
+traveling through the desert corridor. Failure to document these steps can lead
+to reimbursement disputes during the post-event audit.

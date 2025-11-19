@@ -17,7 +17,6 @@ dependencies = [
   "httpx",
   "numpy",
   "Pillow",
-  "gradio",
 ]
 
 [project.optional-dependencies]
@@ -29,16 +28,22 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+# 👇 NEW: tell setuptools which packages to include/exclude
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["llumdocs*"]
+exclude = ["setup*", "tests*"]
 
 [tool.black]
 line-length = 100
-target-version = ["py311"]
+target-version = ["py312"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 extend-select = ["E", "F", "I", "B"]

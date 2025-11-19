@@ -1,0 +1,8 @@
+The municipal innovation team is preparing a pilot for a modular battery system
+that can be stacked near construction sites. Each cabinet combines lithium iron
+phosphate cells with a solid-state inverter that can backfeed energy to the
+distribution grid. The brief emphasizes that sensors stream telemetry every
+thirty seconds to a central dispatch console so operators can reroute power
+during heat waves or outages. Engineers must explain how the firmware enforces
+thermal limits and how the controllers coordinate with the regional utility's
+SCADA interface without exposing private network segments.

@@ -26,6 +26,8 @@ LlumDocs offers a series of utilities accessible both via **graphical interface 
 
 The objective is to have **a single tool** that concentrates the most common operations on text, documents and images, without having to set up multiple dispersed services.
 
+> **Current status:** translation, document summaries, keyword extraction, and both rewrite utilities (technical + plain language) are fully wired in the API and Gradio UI. The roadmap still lists the remaining features as upcoming.
+
 ---
 
 ## Basic architecture
@@ -77,6 +79,70 @@ This facilitates integrating LlumDocs with:
 - ERP / CRM
 - RPA / workflow orchestrators (n8n, Airflow, etc.)
 - Internal applications.
+
+
+## Current implementation (text transformation slice)
+
+- `llumdocs/services/translation_service.py`: validates inputs and orchestrates LiteLLM calls (Catalan/Spanish/English with optional auto-detect).
+- `llumdocs/services/text_transform_service.py`: shared helpers plus keyword extraction, document summaries, technical rewrites, and plain-language simplification.
+- `llumdocs/api/app.py`: FastAPI app exposing `/api/translate`, `/api/documents/summarize`, `/api/text/keywords`, `/api/text/technical`, `/api/text/plain`, plus `/health`.
+- `llumdocs/api/translation_endpoints.py` and `llumdocs/api/text_tools_endpoints.py`: request/response models for the utilities.
+- `llumdocs/ui/main.py`: Gradio Blocks interface with tabs for translation, summaries, keywords, technical rewrite, and plain-language rewrite, sharing the same provider selection.
+
+### Running the API
+
+```bash
+uvicorn llumdocs.api.app:app --reload
+```
+
+Sample requests:
+
+```bash
+curl -X POST http://localhost:8000/api/translate \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Bon dia!", "source_lang": "ca", "target_lang": "en"}'
+```
+
+```bash
+curl -X POST http://localhost:8000/api/documents/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Larga acta...", "summary_type": "executive"}'
+```
+
+```bash
+curl -X POST http://localhost:8000/api/text/keywords \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Informe anual...", "max_keywords": 8}'
+```
+
+### Running the Gradio UI
+
+```bash
+python -m llumdocs.ui.main
+```
+
+The UI shows the same instruction given to the LLM so users know how translation behaves.
+
+### Configuring LiteLLM
+
+- `LLUMDOCS_DEFAULT_MODEL`: optional explicit model identifier (e.g. `gpt-4o-mini`).
+- `LLUMDOCS_DISABLE_OLLAMA=1`: skip the local Ollama backend.
+- `OLLAMA_API_BASE`: override the default `http://localhost:11434`.
+- `OPENAI_API_KEY`: enables OpenAI models.
+
+### Running Live Tests
+
+By default the automated tests mock LLM calls. To exercise the real OpenAI and/or Ollama models:
+
+1. Export the models you want to target (comma-separated):
+   ```bash
+   export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b"
+   ```
+2. Ensure the corresponding providers are configured (`OPENAI_API_KEY`, local Ollama, etc.).
+3. Execute the integration suite:
+   ```bash
+   uv run pytest tests/integration -m integration
+   ```
 
 ---
 

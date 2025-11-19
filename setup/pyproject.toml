@@ -1,9 +1,0 @@
-[project]
-name = "litellm-setup-example"
-version = "0.1.0"
-description = "Simple example setup for LiteLLM with Ollama and OpenAI"
-requires-python = ">=3.8"
-dependencies = [
-    "litellm>=1.0.0",
-    "openai>=1.0.0",
-]

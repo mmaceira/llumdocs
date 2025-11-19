@@ -1,0 +1,10 @@
+Hello team,
+
+Our logistics partner in Tarragona needs the onboarding checklist translated
+for their Catalan-speaking supervisors. The document explains how to calibrate
+barcode scanners, register spare batteries, and submit weekly temperature logs.
+Please provide a clean Catalan version that we can share during Friday's
+training call.
+
+Thanks,
+Marta

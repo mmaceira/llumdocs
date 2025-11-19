@@ -37,7 +37,7 @@ Commit messages must follow this format:
 [component] Brief description in infinitive
 ```
 
-### Accepted componentsa
+### Accepted components
 
 - `[core]` - Core system changes
 - `[ui]` - User interface changes
