@@ -123,6 +123,10 @@ python -m llumdocs.ui.main
 
 The UI shows the same instruction given to the LLM so users know how translation behaves.
 
+### Testing
+
+See the [Running Tests](#running-tests) section below for details on running unit tests and integration tests.
+
 ### Configuring LiteLLM
 
 - `LLUMDOCS_DEFAULT_MODEL`: optional explicit model identifier (e.g. `gpt-4o-mini`).
@@ -157,23 +161,82 @@ Make sure Ollama is running:
 ollama serve
 ```
 
-### Running Live Tests
+### Running Tests
 
-By default the automated tests mock LLM calls. To exercise the real OpenAI and/or Ollama models:
+#### Unit Tests (Mocked LLM Calls)
 
-1. Export the models you want to target (comma-separated):
+By default, the automated tests mock LLM calls and don't require any external services:
+
+```bash
+# Run all unit tests
+uv run pytest
+
+# Run only unit tests (exclude integration tests)
+uv run pytest -m "not integration"
+
+# Run a specific test file
+uv run pytest tests/test_translation_service.py
+```
+
+#### Integration Tests (Live LLM Calls)
+
+Integration tests exercise real OpenAI and/or Ollama models. These tests are marked with `@pytest.mark.integration` and require proper model configuration.
+
+**Prerequisites:**
+
+1. **Configure your LLM providers:**
+   - For **OpenAI**: Set the `OPENAI_API_KEY` environment variable
+     ```bash
+     export OPENAI_API_KEY="your-api-key-here"
+     ```
+   - For **Ollama**: Ensure Ollama is running and models are pulled
+     ```bash
+     # Start Ollama (if not already running)
+     ollama serve
+
+     # Pull required models
+     ollama pull llama3.1:8b          # For text processing
+     ollama pull qwen3-vl:8b           # For vision/image description
+
+     # Verify models are available
+     ollama list
+     ```
+
+2. **Set the test model environment variables:**
+
+   For text processing tests (translation, summaries, keywords, etc.):
    ```bash
    export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b"
    ```
-   For vision model tests, you can also include:
+
+   For vision model tests (image description):
    ```bash
-   export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b,ollama/qwen3-vl:8b,o4-mini"
+   export LLUMDOCS_LIVE_TEST_VISION_MODELS="o4-mini,ollama/qwen3-vl:8b"
    ```
-2. Ensure the corresponding providers are configured (`OPENAI_API_KEY`, local Ollama with models pulled, etc.).
-3. Execute the integration suite:
+
+   You can combine both for comprehensive testing:
    ```bash
+   export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b"
+   export LLUMDOCS_LIVE_TEST_VISION_MODELS="o4-mini,ollama/qwen3-vl:8b"
+   ```
+
+3. **Run the integration tests:**
+   ```bash
+   # Run all integration tests
    uv run pytest tests/integration -m integration
+
+   # Run specific integration test files
+   uv run pytest tests/integration/test_text_tools_live.py -m integration
+   uv run pytest tests/integration/test_translation_live.py -m integration
+   uv run pytest tests/integration/test_image_description_live.py -m integration
    ```
+
+**Note:** If `LLUMDOCS_LIVE_TEST_MODELS` or `LLUMDOCS_LIVE_TEST_VISION_MODELS` are not set, the integration tests will be automatically skipped.
+
+**Model Format:**
+- Ollama text models: `ollama/llama3.1:8b`
+- Ollama vision models: `ollama/qwen3-vl:8b`
+- OpenAI models: `gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo`, `o4-mini`, etc.
 
 ---
 

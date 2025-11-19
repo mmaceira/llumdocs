@@ -9,10 +9,16 @@ from __future__ import annotations
 
 import base64
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from litellm import completion
+from litellm.exceptions import (
+    InternalServerError,
+    RateLimitError,
+    Timeout,
+)
 
 
 class LLMConfigurationError(RuntimeError):
@@ -176,11 +182,28 @@ def available_vision_models() -> List[Tuple[str, str]]:
 def chat_completion(messages: List[Dict[str, str]], model_hint: Optional[str] = None) -> str:
     """
     Execute a LiteLLM chat completion and return the assistant content.
-    """
 
+    Retries on transient errors (connection errors, timeouts, rate limits, 5xx errors)
+    with exponential backoff.
+    """
     config = resolve_model(model_hint)
-    response = completion(model=config.model_id, messages=messages, **config.kwargs)
-    return response.choices[0].message.content.strip()
+
+    max_retries = 3
+    base_delay = 1.0
+
+    for attempt in range(max_retries):
+        try:
+            response = completion(model=config.model_id, messages=messages, **config.kwargs)
+            return response.choices[0].message.content.strip()
+        except (InternalServerError, Timeout, RateLimitError):
+            # Retry on transient errors
+            if attempt < max_retries - 1:
+                # Exponential backoff with jitter
+                delay = base_delay * (2**attempt) + (time.time() % 1)
+                time.sleep(delay)
+                continue
+            # Last attempt failed, re-raise
+            raise
 
 
 def vision_completion(
@@ -230,5 +253,20 @@ def vision_completion(
     ]
 
     config = resolve_vision_model(model_hint)
-    response = completion(model=config.model_id, messages=messages, **config.kwargs)
-    return response.choices[0].message.content.strip()
+
+    max_retries = 3
+    base_delay = 1.0
+
+    for attempt in range(max_retries):
+        try:
+            response = completion(model=config.model_id, messages=messages, **config.kwargs)
+            return response.choices[0].message.content.strip()
+        except (InternalServerError, Timeout, RateLimitError):
+            # Retry on transient errors
+            if attempt < max_retries - 1:
+                # Exponential backoff with jitter
+                delay = base_delay * (2**attempt) + (time.time() % 1)
+                time.sleep(delay)
+                continue
+            # Last attempt failed, re-raise
+            raise
