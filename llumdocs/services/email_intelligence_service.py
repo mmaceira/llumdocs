@@ -55,6 +55,16 @@ class EmailIntelligenceError(RuntimeError):
     """Raised when the email intelligence pipeline cannot run."""
 
 
+def _check_email_intelligence_enabled() -> None:
+    """Check if email intelligence is enabled via environment variable."""
+    enabled = os.getenv("LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE", "1")
+    if enabled.lower() not in ("1", "true", "yes"):
+        raise EmailIntelligenceError(
+            "Email intelligence is disabled via LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE. "
+            "Set it to '1', 'true', or 'yes' to enable."
+        )
+
+
 @dataclass(frozen=True)
 class ClassificationResult:
     labels: Sequence[str]
@@ -81,6 +91,9 @@ class EmailInsights:
     sentiment: SentimentPrediction
 
 
+# NOTE: pipelines are cached at module level and reused across requests.
+# For high-throughput deployments, consider running email intelligence
+# in a dedicated worker process or service.
 _ZERO_SHOT_PIPELINE: Pipeline | None = None
 _PHISHING_PIPELINE: Pipeline | None = None
 _SENTIMENT_PIPELINE: Pipeline | None = None
@@ -281,6 +294,7 @@ def classify_email(
     """
     Classify an email/ticket into custom categories via zero-shot inference.
     """
+    _check_email_intelligence_enabled()
     text_value = _normalize_text(text)
     labels = _normalize_labels(candidate_labels)
     template = hypothesis_template or "This message is about {}."
@@ -330,6 +344,7 @@ def detect_phishing(text: str) -> PhishingDetection:
     Returns human-readable labels (e.g., "safe", "phishing") instead of
     model-internal labels (e.g., "LABEL_0", "LABEL_1").
     """
+    _check_email_intelligence_enabled()
     text_value = _normalize_text(text)
 
     pipeline_runner: Pipeline | None = None
@@ -389,6 +404,7 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
     """
     Run multilingual sentiment analysis (positive/neutral/negative).
     """
+    _check_email_intelligence_enabled()
     text_value = _normalize_text(text)
 
     pipeline_runner: Pipeline | None = None

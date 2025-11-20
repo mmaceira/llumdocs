@@ -28,10 +28,10 @@ llumdocs-ui = "llumdocs.ui.main:main"
 
 [project.optional-dependencies]
 dev = [
-    "pre-commit",
-    "ruff",
-    "black",
-    "pytest",
+  "pre-commit",
+  "ruff",
+  "black",
+  "pytest",
 ]
 
 [build-system]

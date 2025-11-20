@@ -67,3 +67,10 @@ Stick to this guide, keep logic modular, and every PR stays small and easy to re
 ## 6. Prompting Contracts
 
 - Keyword extraction endpoints expect the model to return a JSON array of strings. The service includes fallback parsing for bullet or numbered lists, but treat that as a last resort—tune prompts or switch models if you cannot obtain valid JSON.
+
+## 7. Email Intelligence & Hugging Face Models
+
+- Email intelligence uses Hugging Face pipelines that are cached at module level and reused across requests.
+- Pipelines are considered thread-safe for typical workloads, but for high-throughput deployments, consider running email intelligence in a dedicated worker process.
+- Hugging Face models are downloaded to the cache directory specified by `HF_HOME` (default: `~/.cache/huggingface`). In Docker/K8s, set `HF_HOME` to a mounted volume for persistence.
+- The email intelligence feature can be disabled via `LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE=0` environment variable.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
@@ -72,6 +73,14 @@ async def describe(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Image file is empty.",
+            )
+
+        # Check file size limit (default 10MB, configurable via env)
+        max_file_size = int(os.getenv("LLUMDOCS_MAX_IMAGE_SIZE_BYTES", str(10 * 1024 * 1024)))
+        if len(image_bytes) > max_file_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Image file exceeds maximum size of {max_file_size / (1024 * 1024):.1f}MB.",
             )
 
         # Generate description

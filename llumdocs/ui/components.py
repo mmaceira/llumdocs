@@ -5,7 +5,7 @@ from __future__ import annotations
 import gradio as gr
 
 from llumdocs.llm import LLMConfigurationError
-from llumdocs.services.email_intelligence_service import (
+from llumdocs.services import (
     DEFAULT_EMAIL_ROUTING_LABELS,
     EmailIntelligenceError,
     EmailIntelligenceService,
@@ -226,8 +226,7 @@ def create_keywords_panel(
     """Create the keyword extraction panel."""
     with gr.Column(visible=False) as keyword_panel:
         gr.Markdown("Extract the most relevant keywords for quick indexing.")
-        # Keywords panel doesn't show model dropdown, uses first available model
-        default_model_label = model_choices[0][0] if model_choices else None
+        model_dropdown = create_llm_dropdown(model_choices)
         keyword_textbox = gr.Textbox(
             label="Text to analyze",
             placeholder="Paste or write your text here…",
@@ -247,10 +246,7 @@ def create_keywords_panel(
         )
         keyword_error = create_error_display()
 
-        def run_keywords(text: str, max_keywords: float) -> tuple[str, str]:
-            model_label = default_model_label
-            if not model_label:
-                return "", "No models available. Please configure a model provider."
+        def run_keywords(text: str, max_keywords: float, model_label: str) -> tuple[str, str]:
             model_id, err = _resolve_model_id(model_label, model_map)
             if err:
                 return "", err
@@ -266,7 +262,7 @@ def create_keywords_panel(
 
         keyword_button.click(
             fn=run_keywords,
-            inputs=[keyword_textbox, keyword_slider],
+            inputs=[keyword_textbox, keyword_slider, model_dropdown],
             outputs=[keyword_output, keyword_error],
         )
 
@@ -391,6 +387,10 @@ def create_image_panel(
     with gr.Column(visible=False) as image_panel:
         gr.Markdown("Generate detailed descriptions of images using AI vision models.")
         vision_model_dropdown = create_vision_dropdown(vision_model_choices)
+        # Show which model is selected (will be updated dynamically)
+        default_vision_model_label = vision_model_choices[0][0] if vision_model_choices else None
+        if default_vision_model_label:
+            gr.Markdown(f"Using model: **{default_vision_model_label}**")
         image_upload = gr.Image(
             label="Upload image",
             type="filepath",
@@ -460,10 +460,16 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
         gr.Markdown(
             "Analyze multilingual emails to route them, flag phishing, and capture sentiment."
         )
+        routing_labels = (
+            DEFAULT_EMAIL_ROUTING_LABELS
+            if DEFAULT_EMAIL_ROUTING_LABELS
+            else ["support", "billing", "sales", "HR", "IT incident"]
+        )
         gr.Markdown(
-            f"**Routing categories:** {', '.join(DEFAULT_EMAIL_ROUTING_LABELS)}",
+            f"**Routing categories:** {', '.join(routing_labels)}",
             elem_classes=["caption"],
         )
+        gr.Markdown("Using Hugging Face models for email intelligence.")
         message_text = gr.Textbox(
             label="Email or ticket content",
             placeholder="Bon dia, tinc un problema amb la factura de novembre…",
@@ -491,9 +497,14 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
             template_value: str,
         ) -> tuple[str, str, str, str]:
             template_arg = template_value.strip() or None
+            routing_labels = (
+                DEFAULT_EMAIL_ROUTING_LABELS
+                if DEFAULT_EMAIL_ROUTING_LABELS
+                else ["support", "billing", "sales", "HR", "IT incident"]
+            )
             try:
                 service = EmailIntelligenceService(
-                    DEFAULT_EMAIL_ROUTING_LABELS,
+                    routing_labels,
                     multi_label=multi_label_enabled,
                     hypothesis_template=template_arg,
                 )

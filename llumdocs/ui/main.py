@@ -18,9 +18,25 @@ from llumdocs.ui.components import (
 from llumdocs.ui.layout import (
     FEATURE_BUTTON_CSS,
     FEATURES,
-    create_feature_sidebar,
     create_panel_switcher,
 )
+
+
+def _check_email_intelligence_available() -> bool:
+    """Check if email intelligence dependencies are available."""
+    try:
+        # Try importing the service - if this succeeds, email intelligence is available
+        from llumdocs.services import EmailIntelligenceService  # noqa: F401
+
+        # Also check if torch is available (required dependency)
+        try:
+            import torch  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+    except ImportError:
+        return False
 
 
 def create_interface() -> gr.Blocks:
@@ -32,8 +48,19 @@ def create_interface() -> gr.Blocks:
     vision_model_map = dict(vision_model_choices)
 
     source_map = {label: code for label, code in LANGUAGE_OPTIONS}
+
+    # Check email intelligence availability at runtime
+    email_intelligence_available = _check_email_intelligence_available()
+    features_with_availability = []
+    for feature in FEATURES:
+        if feature["label"] == "Email intelligence":
+            # Update availability based on runtime check
+            feature = {**feature, "available": email_intelligence_available}
+        features_with_availability.append(feature)
+
     default_feature = next(
-        (feature["label"] for feature in FEATURES if feature["available"]), FEATURES[0]["label"]
+        (feature["label"] for feature in features_with_availability if feature["available"]),
+        features_with_availability[0]["label"],
     )
 
     with gr.Blocks(title="LlumDocs", theme=gr.themes.Soft(), css=FEATURE_BUTTON_CSS) as demo:
@@ -50,7 +77,28 @@ def create_interface() -> gr.Blocks:
             # Left sidebar with feature buttons
             with gr.Column(scale=1):
                 # Feature buttons (utilities roadmap)
-                feature_button_refs = create_feature_sidebar(default_feature)
+                # Create sidebar with updated availability
+                feature_button_refs = []
+                gr.Markdown("### Utilities roadmap")
+                for idx, feature in enumerate(features_with_availability):
+                    if feature["available"]:
+                        if feature["label"] == default_feature:
+                            classes = ["feature-button", "feature-active"]
+                        else:
+                            classes = ["feature-button", "feature-available"]
+                    else:
+                        classes = ["feature-button", "feature-disabled"]
+                    elem_id = f"feature-btn-{idx}"
+                    btn = gr.Button(
+                        feature["label"],
+                        interactive=feature["available"],
+                        elem_classes=classes,
+                        elem_id=elem_id,
+                    )
+                    gr.Markdown(f"*{feature['description']}*", elem_classes=["feature-description"])
+                    feature_button_refs.append(
+                        (feature["label"], btn, feature["available"], elem_id)
+                    )
 
                 if not model_choices and not vision_model_choices:
                     gr.Markdown(
@@ -71,7 +119,7 @@ def create_interface() -> gr.Blocks:
                 summary_panel, _ = create_summary_panel(model_map, model_choices)
                 panel_map["Document summaries"] = summary_panel
 
-                # Keywords panel (no model dropdown - uses default)
+                # Keywords panel
                 keyword_panel, _ = create_keywords_panel(model_map, model_choices)
                 panel_map["Keyword extraction"] = keyword_panel
 

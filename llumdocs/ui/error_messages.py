@@ -11,7 +11,7 @@ Provides user-friendly error messages that distinguish between different error t
 from __future__ import annotations
 
 from llumdocs.llm import LLMConfigurationError
-from llumdocs.services.email_intelligence_service import EmailIntelligenceError
+from llumdocs.services import EmailIntelligenceError
 from llumdocs.services.image_description_service import ImageDescriptionError
 from llumdocs.services.text_transform_service import TextTransformError
 from llumdocs.services.translation_service import TranslationError

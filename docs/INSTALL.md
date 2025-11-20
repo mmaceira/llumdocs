@@ -30,21 +30,36 @@ source .venv/bin/activate            # Windows: .venv\Scripts\activate
 
 `uv sync` reads `pyproject.toml`, creates `.venv`, and installs both runtime dependencies and optional dev extras when you pass `--all-extras`.
 
-### Heavy Dependencies Note
+### Email Intelligence (Optional Extra)
 
-LlumDocs includes `torch` and `transformers` as core dependencies to support the **email intelligence** feature (routing, phishing detection, sentiment analysis). These packages are large (~2-3 GB) and require significant disk space and memory.
+The **email intelligence** feature (routing, phishing detection, sentiment analysis) requires `torch` and `transformers`, which are large packages (~2-3 GB). These are now available as an optional extra:
 
-- **Email intelligence** will gracefully degrade if `torch` is missing, but the feature will be unavailable.
-- If you don't need email intelligence and want a lighter installation, you can:
-  - Remove `torch` and `transformers` from `pyproject.toml` dependencies (they're only used by `llumdocs/services/email_intelligence_service.py`)
-  - Or create an optional extra that excludes them for constrained environments
+```bash
+# Install with email intelligence support
+pip install "llumdocs[email]"
 
-For most use cases (translation, summaries, keywords, image descriptions), these heavy dependencies are not required.
+# Or with uv
+uv sync --extra email
+```
+
+If you don't need email intelligence, you can install the base package without these dependencies:
+
+```bash
+# Base installation (no email intelligence)
+uv sync
+```
+
+The email intelligence service will raise a clear error if used without the `email` extra installed. You can also disable it via environment variable:
+
+```bash
+export LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE=0
+```
+
+For most use cases (translation, summaries, keywords, image descriptions), the email extra is not required.
 
 ### Optional: Email intelligence models (Hugging Face)
 
-The email intelligence service depends on **`torch`** and **`transformers`** to load
-three Hugging Face pipelines:
+The email intelligence service (requires `llumdocs[email]` extra) loads three Hugging Face pipelines:
 
 - Zero-shot routing: `MoritzLaurer/bge-m3-zeroshot-v2.0`
 - Phishing detection: `cybersectony/phishing-email-detection-distilbert_v2.1`
@@ -58,9 +73,18 @@ export LLUMDOCS_EMAIL_PHISHING_MODEL="your-org/your-phishing-model"
 export LLUMDOCS_EMAIL_SENTIMENT_MODEL="your-org/your-sentiment-model"
 ```
 
-The first call to each capability will be slower (model download + load). Subsequent
-calls reuse the cached pipeline. In constrained environments you may choose not to
-use this module at all.
+**Hugging Face cache control:**
+
+Models are downloaded to the default Hugging Face cache directory. In Docker/K8s deployments, you can control the cache location:
+
+```bash
+export HF_HOME=/models/hf
+# Or set LLUMDOCS_HF_HOME to override (if supported in future versions)
+```
+
+Mount a persistent volume at `/models/hf` to avoid re-downloading models on container restarts.
+
+The first call to each capability will be slower (model download + load). Subsequent calls reuse the cached pipeline. Pipelines are thread-safe and reused across requests, but for high-throughput deployments, consider running email intelligence in a dedicated worker process.
 
 ---
 
@@ -75,18 +99,32 @@ cp .env.template .env
 Key variables understood by `llumdocs.llm.resolve_model()`:
 
 - `OPENAI_API_KEY` – enables OpenAI routing through LiteLLM.
-- `LLUMDOCS_DEFAULT_MODEL` – preferred text model (`gpt-4o-mini`, `ollama/llama3.1:8b`, etc.).
-- `LLUMDOCS_DEFAULT_VISION_MODEL` – model for image description tasks.
+- `LLUMDOCS_DEFAULT_MODEL` – preferred text model (see recommended models below).
+- `LLUMDOCS_DEFAULT_VISION_MODEL` – model for image description tasks (see recommended models below).
 - `LLUMDOCS_DISABLE_OLLAMA=1` – opt-out of Ollama even if installed.
 - `OLLAMA_API_BASE` – change the Ollama host (default `http://localhost:11434`).
+- `LLUMDOCS_LLM_TIMEOUT_SECONDS` – timeout for LLM calls in seconds (default: 30.0).
+- `LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE` – set to `0` to disable email intelligence (default: `1`).
+- `LLUMDOCS_MAX_IMAGE_SIZE_BYTES` – maximum image upload size in bytes (default: 10MB).
+- `HF_HOME` – Hugging Face cache directory (for email intelligence models).
+
+**Recommended models:**
+
+| Use case     | Recommended model ids        |
+|--------------|------------------------------|
+| Text tools   | `gpt-4o-mini` or `ollama/llama3.1:8b` |
+| Vision tools | `o4-mini` or `ollama/qwen3-vl:8b` |
 
 Example:
 
 ```ini
 OPENAI_API_KEY=sk-your-key
-LLUMDOCS_DEFAULT_MODEL=ollama/llama3.1:8b
-LLUMDOCS_DEFAULT_VISION_MODEL=ollama/qwen3-vl:8b
+LLUMDOCS_DEFAULT_MODEL=gpt-4o-mini
+LLUMDOCS_DEFAULT_VISION_MODEL=o4-mini
 OLLAMA_API_BASE=http://localhost:11434
+LLUMDOCS_LLM_TIMEOUT_SECONDS=30.0
+LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE=1
+HF_HOME=/models/hf
 ```
 
 ---
@@ -158,5 +196,71 @@ They are helpful when validating that your providers and credentials are correct
 - **`uv sync` fails on Linux** – ensure you have build tools (`build-essential`, `python3.12-dev`) installed.
 - **Ollama models missing** – rerun `ollama list`; if empty, the pull may have failed. Check connectivity or disk space.
 - **API cannot resolve model** – confirm `LLUMDOCS_DEFAULT_MODEL` matches one of the LiteLLM identifiers listed in the [LiteLLM docs](https://docs.litellm.ai/).
+
+---
+
+## 7. Docker Deployment (Optional)
+
+LlumDocs can be deployed using Docker and Docker Compose, with optional Ollama integration.
+
+### Quick Start with Docker Compose
+
+1. **Create a `.env` file** in the project root with your configuration:
+   ```bash
+   OPENAI_API_KEY=sk-your-key
+   LLUMDOCS_DEFAULT_MODEL=gpt-4o-mini
+   LLUMDOCS_DEFAULT_VISION_MODEL=o4-mini
+   INSTALL_EMAIL=1  # Set to 1 to include email intelligence dependencies
+   ```
+
+2. **Build and start services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Pre-pull Ollama models** (if using Ollama):
+   ```bash
+   docker-compose exec ollama ollama pull llama3.1:8b
+   docker-compose exec ollama ollama pull qwen3-vl:8b
+   ```
+
+4. **Access services:**
+   - FastAPI: `http://localhost:8000`
+   - API docs: `http://localhost:8000/docs`
+   - Health check: `http://localhost:8000/health`
+   - Ollama: `http://localhost:11434`
+
+### Dockerfile Details
+
+The `Dockerfile` supports building with or without email intelligence:
+
+```bash
+# Build without email intelligence (lighter image)
+docker build -t llumdocs .
+
+# Build with email intelligence
+docker build --build-arg INSTALL_EMAIL=1 -t llumdocs .
+```
+
+### Production Considerations
+
+For production deployments, consider:
+
+- **Uvicorn workers**: Run multiple workers for better concurrency:
+  ```bash
+  uvicorn llumdocs.api.app:app --host 0.0.0.0 --port 8000 --workers 4
+  ```
+
+- **Resource limits**: Set appropriate CPU/memory limits in `docker-compose.yml` or Kubernetes manifests.
+
+- **Health checks**: The container includes a health check endpoint at `/health` and readiness at `/ready`.
+
+- **Persistent volumes**:
+  - HF models cache: `/models/hf` (mounted as `hf-cache` volume)
+  - Ollama models: `/root/.ollama` (mounted as `ollama-models` volume)
+
+- **GPU support**: For GPU-accelerated Ollama, uncomment the GPU deployment section in `docker-compose.yml` and ensure NVIDIA Container Toolkit is installed.
+
+---
 
 Once the above steps succeed, continue with `docs/TESTING.md` to validate your setup via unit and integration tests.

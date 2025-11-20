@@ -34,6 +34,11 @@ def create_app() -> FastAPI:
         """Lightweight liveness probe used by deployment platforms."""
         return {"status": "ok"}
 
+    @app.get("/ready", summary="Readiness probe")
+    async def ready():
+        """Readiness probe for deployment platforms. Checks basic configuration."""
+        return {"status": "ready"}
+
     return app
 
 

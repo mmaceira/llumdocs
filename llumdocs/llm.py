@@ -20,6 +20,9 @@ from litellm.exceptions import (
     Timeout,
 )
 
+# Configurable timeout for LLM calls (in seconds)
+LLM_TIMEOUT_SECONDS = float(os.getenv("LLUMDOCS_LLM_TIMEOUT_SECONDS", "30.0"))
+
 
 class LLMConfigurationError(RuntimeError):
     """Raised when no valid LLM backend is available."""
@@ -193,7 +196,12 @@ def chat_completion(messages: List[Dict[str, str]], model_hint: Optional[str] = 
 
     for attempt in range(max_retries):
         try:
-            response = completion(model=config.model_id, messages=messages, **config.kwargs)
+            response = completion(
+                model=config.model_id,
+                messages=messages,
+                timeout=LLM_TIMEOUT_SECONDS,
+                **config.kwargs,
+            )
             return response.choices[0].message.content.strip()
         except (InternalServerError, Timeout, RateLimitError):
             # Retry on transient errors
@@ -259,7 +267,12 @@ def vision_completion(
 
     for attempt in range(max_retries):
         try:
-            response = completion(model=config.model_id, messages=messages, **config.kwargs)
+            response = completion(
+                model=config.model_id,
+                messages=messages,
+                timeout=LLM_TIMEOUT_SECONDS,
+                **config.kwargs,
+            )
             return response.choices[0].message.content.strip()
         except (InternalServerError, Timeout, RateLimitError):
             # Retry on transient errors

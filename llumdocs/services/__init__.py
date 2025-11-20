@@ -7,7 +7,9 @@ translation and various text transformation utilities.
 
 from __future__ import annotations
 
+# Email intelligence is now a core feature (transformers/torch are required dependencies)
 from .email_intelligence_service import (
+    DEFAULT_EMAIL_ROUTING_LABELS,
     EmailIntelligenceError,
     EmailIntelligenceService,
     analyze_sentiment,
@@ -33,6 +35,7 @@ __all__ = [
     "make_text_more_technical",
     "simplify_text",
     "summarize_document",
+    "DEFAULT_EMAIL_ROUTING_LABELS",
     "EmailIntelligenceError",
     "EmailIntelligenceService",
     "classify_email",
