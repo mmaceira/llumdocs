@@ -1,146 +1,65 @@
 # LlumDocs Development Guide
 
-Quick reference guide for making commits and maintaining code quality.
+Short checklist for contributing code without breaking conventions.
 
 ---
 
-## 1. How to Make Commits
+## 1. Daily Workflow
 
-### Step by step
-
-```bash
-# 1. Stage your changes
-git add .
-
-# 2. Commit (pre-commit will run automatically)
-git commit -m "[component] Description of change"
-```
-
-### Before committing (optional)
-
-If you want to check everything is correct before committing:
-
-```bash
-# Run all pre-commit hooks
-pre-commit run --all-files
-```
+1. Pull the latest changes and create a feature branch.
+2. Run `uv sync` if dependencies changed (check `uv.lock` in commits).
+3. Keep business logic inside `llumdocs/services`, surface it via API/UI layers, and avoid direct OpenAI SDK calls—always go through `llumdocs.llm` helpers.
+4. Write or update tests next to the component you touch (unit first, integration as needed).
+5. Run linters + tests locally before opening a PR.
 
 ---
 
-## 2. Commit Message Format
+## 2. Commit Style
 
-### Required format
-
-Commit messages must follow this format:
-
-```
-[component] Brief description in infinitive
-```
-
-### Accepted components
-
-- `[core]` - Core system changes
-- `[ui]` - User interface changes
-- `[api]` - API changes
-- `[docs]` - Documentation changes
-- `[test]` - Test-related changes
-- `[fix]` - Bug fixes
-- `[refactor]` - Code refactoring
-
-### Valid examples
-
-```bash
-git commit -m "[core] Add summarization service"
-git commit -m "[ui] Improve translation interface"
-git commit -m "[api] Add semantic search endpoint"
-git commit -m "[docs] Update LlumDocs README"
-git commit -m "[fix] Fix error in image processing"
-git commit -m "[refactor] Simplify validation logic"
-```
-
-### Rules
-
-- ✅ Message must start with `[` and contain `]`
-- ✅ There must be text after the label
-- ✅ Description should be in infinitive (add, improve, fix, etc.)
-- ❌ Messages without component are not allowed: `"Add feature"` (incorrect)
-- ❌ Messages without description are not allowed: `"[core]"` (incorrect)
+- Format: `[component] Do something` (imperative, ≤70 chars).
+- Components: `[core]`, `[api]`, `[ui]`, `[services]`, `[docs]`, `[test]`, `[fix]`, `[refactor]`.
+- Example:
+  ```bash
+  git commit -m "[services] Add keyword extraction throttle"
+  ```
+- Pre-commit enforces the format; failing hooks block the commit until fixed.
 
 ---
 
-## 3. Ruff Commands
+## 3. Quality Gates
 
-### Basic commands
+- **Pre-commit** runs automatically on `git commit`. Run manually with `pre-commit run --all-files` when iterating on large changes.
+- **Ruff** handles lint + format:
+  ```bash
+  ruff check .            # lint only
+  ruff check --fix .      # auto-fix
+  ruff format .           # formatting
+  ```
+- Config lives in `pyproject.toml` (line length 100, Python 3.12, rules E/F/I/B).
 
-```bash
-# Check for errors and warnings (without modifying files)
-ruff check .
+---
 
-# Check and automatically fix fixable errors
-ruff check --fix .
+## 4. Testing Expectations
 
-# Check a specific directory
-ruff check llumdocs/
+- Unit tests should pass without network access; mock LiteLLM calls.
+- Integration tests require real providers—see `docs/TESTING.md` for env vars, commands, and troubleshooting.
+- Prefer `uv run pytest ...` so the virtualenv from `uv sync` is reused.
 
-# Check a specific file
-ruff check llumdocs/app/main.py
-```
+---
 
-### Format code
-
-```bash
-# Format all files
-ruff format .
-
-# Format a specific directory
-ruff format llumdocs/
-
-# Format a specific file
-ruff format llumdocs/app/main.py
-```
-
-### Combined commands
+## 5. Handy Commands
 
 ```bash
-# Check and format everything
+# Install dev extras in the current environment
+uv sync --all-extras && source .venv/bin/activate
+
+# Lint + format everything
 ruff check --fix . && ruff format .
 
-# Check and format a directory
-ruff check --fix llumdocs/ && ruff format llumdocs/
-```
-
-### Other useful options
-
-```bash
-# Show only errors (no warnings)
-ruff check --select E,F .
-
-# Show all issues (including suggestions)
-ruff check --select ALL .
-
-# Temporarily ignore a specific rule
-ruff check --ignore E501 .
+# Run fast unit suite
+uv run pytest -m "not integration"
 ```
 
 ---
 
-## 4. Pre-commit (Info)
-
-Pre-commit hooks run automatically when you do `git commit` and check:
-
-- Code formatting (ruff format, black)
-- Linting (ruff check)
-- Trailing whitespace and newlines
-- Commit message format
-
-If any hook fails, the commit is rejected and you must fix the errors before trying again.
-
----
-
-## 5. Ruff Configuration
-
-Ruff configuration is in `pyproject.toml`:
-
-- Line length: 100 characters
-- Python version: 3.11
-- Active rules: E (pycodestyle), F (pyflakes), I (imports), B (bugbear)
+Stick to this guide, keep logic modular, and every PR stays small and easy to review. For architecture expectations, read `docs/LLM_GUIDE_GLOBAL.md`; for capability blueprints, see `docs/LLM_FEATURE_SPECS.md`.
