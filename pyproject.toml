@@ -23,7 +23,8 @@ dependencies = [
 ]
 
 [project.scripts]
-llumdocs-api = "llumdocs.api.app:app"
+llumdocs-api = "llumdocs.api.app:main"
+llumdocs-ui = "llumdocs.ui.main:main"
 
 [project.optional-dependencies]
 dev = [

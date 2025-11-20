@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from llumdocs.api.error_handling import handle_service_error
 from llumdocs.services.image_description_service import (
     ImageDescriptionError,
     describe_image,
@@ -84,4 +85,4 @@ async def describe(
         return ImageDescriptionResponse(description=description)
 
     except ImageDescriptionError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise handle_service_error(exc) from exc

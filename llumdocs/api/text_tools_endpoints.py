@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from llumdocs.api.error_handling import handle_service_error
 from llumdocs.services.text_transform_service import (
     TextTransformError,
     extract_keywords,
@@ -73,10 +74,6 @@ class PlainLanguageResponse(BaseModel):
 router = APIRouter(prefix="/api", tags=["text-tools"])
 
 
-def _handle_error(exc: TextTransformError) -> None:
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-
 @router.post(
     "/text/keywords",
     response_model=KeywordsResponse,
@@ -90,7 +87,7 @@ async def keywords(payload: KeywordsRequest) -> KeywordsResponse:
             model_hint=payload.model,
         )
     except TextTransformError as exc:
-        _handle_error(exc)
+        raise handle_service_error(exc) from exc
     return KeywordsResponse(keywords=result)
 
 
@@ -107,7 +104,7 @@ async def summarize(payload: SummaryRequest) -> SummaryResponse:
             model_hint=payload.model,
         )
     except TextTransformError as exc:
-        _handle_error(exc)
+        raise handle_service_error(exc) from exc
     return SummaryResponse(summary=summary_text)
 
 
@@ -125,7 +122,7 @@ async def make_technical(payload: TechnicalRequest) -> TechnicalResponse:
             model_hint=payload.model,
         )
     except TextTransformError as exc:
-        _handle_error(exc)
+        raise handle_service_error(exc) from exc
     return TechnicalResponse(technical_text=technical_text)
 
 
@@ -142,5 +139,5 @@ async def simplify(payload: PlainLanguageRequest) -> PlainLanguageResponse:
             model_hint=payload.model,
         )
     except TextTransformError as exc:
-        _handle_error(exc)
+        raise handle_service_error(exc) from exc
     return PlainLanguageResponse(plain_text=plain_text)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -28,11 +29,30 @@ def create_app() -> FastAPI:
     app.include_router(text_tools_router)
     app.include_router(image_router)
 
-    @app.get("/health")
+    @app.get("/health", summary="Simple healthcheck")
     async def health():
+        """Lightweight liveness probe used by deployment platforms."""
         return {"status": "ok"}
 
     return app
 
 
 app = create_app()
+
+
+def main() -> None:
+    """CLI entrypoint for running the LlumDocs API server."""
+    host = os.getenv("LLUMDOCS_HOST", "0.0.0.0")
+    port = int(os.getenv("LLUMDOCS_PORT", "8000"))
+    reload = os.getenv("LLUMDOCS_RELOAD", "false").lower() in ("true", "1", "yes")
+
+    uvicorn.run(
+        "llumdocs.api.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )
+
+
+if __name__ == "__main__":
+    main()

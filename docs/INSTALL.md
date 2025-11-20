@@ -30,6 +30,38 @@ source .venv/bin/activate            # Windows: .venv\Scripts\activate
 
 `uv sync` reads `pyproject.toml`, creates `.venv`, and installs both runtime dependencies and optional dev extras when you pass `--all-extras`.
 
+### Heavy Dependencies Note
+
+LlumDocs includes `torch` and `transformers` as core dependencies to support the **email intelligence** feature (routing, phishing detection, sentiment analysis). These packages are large (~2-3 GB) and require significant disk space and memory.
+
+- **Email intelligence** will gracefully degrade if `torch` is missing, but the feature will be unavailable.
+- If you don't need email intelligence and want a lighter installation, you can:
+  - Remove `torch` and `transformers` from `pyproject.toml` dependencies (they're only used by `llumdocs/services/email_intelligence_service.py`)
+  - Or create an optional extra that excludes them for constrained environments
+
+For most use cases (translation, summaries, keywords, image descriptions), these heavy dependencies are not required.
+
+### Optional: Email intelligence models (Hugging Face)
+
+The email intelligence service depends on **`torch`** and **`transformers`** to load
+three Hugging Face pipelines:
+
+- Zero-shot routing: `MoritzLaurer/bge-m3-zeroshot-v2.0`
+- Phishing detection: `cybersectony/phishing-email-detection-distilbert_v2.1`
+- Sentiment: `cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual`
+
+These can be overridden via environment variables:
+
+```bash
+export LLUMDOCS_EMAIL_ZEROSHOT_MODEL="your-org/your-zeroshot-model"
+export LLUMDOCS_EMAIL_PHISHING_MODEL="your-org/your-phishing-model"
+export LLUMDOCS_EMAIL_SENTIMENT_MODEL="your-org/your-sentiment-model"
+```
+
+The first call to each capability will be slower (model download + load). Subsequent
+calls reuse the cached pipeline. In constrained environments you may choose not to
+use this module at all.
+
 ---
 
 ## 3. Environment Variables

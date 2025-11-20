@@ -39,7 +39,7 @@ def test_live_image_description_short(sample_image: bytes, model_hint: str) -> N
     description = describe_image(
         sample_image,
         detail_level="short",
-        max_size=128,
+        max_size=64,
         model_hint=model_hint,
     )
 
@@ -55,7 +55,7 @@ def test_live_image_description_detailed(sample_image: bytes, model_hint: str) -
     description = describe_image(
         sample_image,
         detail_level="detailed",
-        max_size=128,
+        max_size=64,
         model_hint=model_hint,
     )
 
@@ -69,7 +69,7 @@ def test_live_image_description_detailed(sample_image: bytes, model_hint: str) -
 @pytest.mark.parametrize("model_hint", LIVE_VISION_MODELS)
 def test_live_image_description_different_sizes(sample_image: bytes, model_hint: str) -> None:
     """Test that different max_size values work correctly."""
-    for max_size in [128]:
+    for max_size in [64]:
         description = describe_image(
             sample_image,
             detail_level="short",

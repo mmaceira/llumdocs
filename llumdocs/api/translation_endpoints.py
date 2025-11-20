@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from pydantic import BaseModel, Field
 
+from llumdocs.api.error_handling import handle_service_error
 from llumdocs.services.translation_service import TranslationError, translate_text
 
 
@@ -52,6 +53,6 @@ async def translate(payload: TranslationRequest) -> TranslationResponse:
             model_hint=payload.model,
         )
     except TranslationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise handle_service_error(exc) from exc
 
     return TranslationResponse(translated_text=translated)

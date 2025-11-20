@@ -4,6 +4,23 @@ LlumDocs is a FastAPI + Gradio toolkit that turns raw documents, text and images
 
 ---
 
+## Quickstart
+
+Once dependencies and your `.env` are set up (see `docs/INSTALL.md`):
+
+```bash
+# 1. Launch the Gradio UI
+uv run llumdocs-ui
+
+# 2. (Optional) Launch FastAPI in another terminal
+uv run uvicorn llumdocs.api.app:app --reload
+
+# Then open http://localhost:7860 for the UI.
+# FastAPI will default to http://127.0.0.1:8000 with OpenAPI docs at /docs.
+```
+
+---
+
 ## Implemented Capabilities
 
 | Capability | Algorithms / Services | API & UI surfacing |
@@ -14,7 +31,7 @@ LlumDocs is a FastAPI + Gradio toolkit that turns raw documents, text and images
 | Document summarization (short/executive) | `llumdocs/services/text_transform_service/summary.py` | `POST /api/documents/summarize`, Gradio **Summaries** tab |
 | Keyword extraction | `llumdocs/services/text_transform_service/keywords.py` | `POST /api/text/keywords`, Gradio **Keywords** tab |
 | Image description (caption + detail) | `llumdocs/services/image_description_service.py` | `POST /api/images/describe`, Gradio **Image description** tab |
-| Email routing + phishing & sentiment | `services/email_intelligence_service.py` (`classify_email`, `detect_phishing`, `analyze_sentiment`) | Gradio **Email intelligence** tab (API endpoint coming soon) |
+| Email intelligence (routing, phishing, sentiment) | `llumdocs/services/email_intelligence_service.py` – HuggingFace zero-shot + phishing + multilingual sentiment | Gradio **Email intelligence** tab (API route planned) |
 
 All endpoints are registered in `llumdocs/api/app.py`, and the Gradio UI lives in `llumdocs/ui/main.py`.
 

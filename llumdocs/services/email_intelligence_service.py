@@ -12,6 +12,7 @@ and ticket workflows:
 from __future__ import annotations
 
 import gc
+import os
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Sequence
 
@@ -28,9 +29,14 @@ from transformers import (
     pipeline,
 )
 
-ZERO_SHOT_MODEL_ID = "MoritzLaurer/bge-m3-zeroshot-v2.0"
-PHISHING_MODEL_ID = "cybersectony/phishing-email-detection-distilbert_v2.1"
-SENTIMENT_MODEL_ID = "cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual"
+ZERO_SHOT_MODEL_ID = os.getenv("LLUMDOCS_EMAIL_ZEROSHOT_MODEL", "MoritzLaurer/bge-m3-zeroshot-v2.0")
+PHISHING_MODEL_ID = os.getenv(
+    "LLUMDOCS_EMAIL_PHISHING_MODEL", "cybersectony/phishing-email-detection-distilbert_v2.1"
+)
+SENTIMENT_MODEL_ID = os.getenv(
+    "LLUMDOCS_EMAIL_SENTIMENT_MODEL",
+    "cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual",
+)
 
 # Default routing categories for email classification.
 # The zero-shot model can classify into ANY labels you provide;

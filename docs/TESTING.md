@@ -8,12 +8,20 @@ This document describes how to run the automated suites after you install the pr
 
 No external providers are required—LiteLLM calls are mocked.
 
+To avoid pulling Hugging Face models during tests, run the unit suite without
+any email-intelligence integration tests (currently, there are none that require
+HF; if you add some, mark them `@pytest.mark.integration`).
+
 ```bash
 # run everything
 uv run pytest
 
 # skip integration markers
 uv run pytest -m "not integration"
+
+# unit-only, no HuggingFace (excludes email intelligence tests)
+# Useful for CI jobs without GPU or when transformers/torch are not installed
+uv run pytest -m "not integration" --ignore=tests/test_email_intelligence_service.py
 
 # single file
 uv run pytest tests/test_translation_service.py
