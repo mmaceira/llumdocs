@@ -94,7 +94,7 @@ def describe_image(
     image_bytes: bytes,
     detail_level: DetailLevel = "short",
     *,
-    max_size: int = 512,
+    max_size: int = 128,
     model_hint: str | None = None,
 ) -> str:
     """
@@ -103,7 +103,7 @@ def describe_image(
     Args:
         image_bytes: Image data as bytes.
         detail_level: Level of detail for the description ("short" or "detailed").
-        max_size: Maximum size for the longest side in pixels (default: 512).
+        max_size: Maximum size for the longest side in pixels (default: 128).
         model_hint: Optional explicit vision model id (e.g., "o4-mini", "ollama/qwen3-vl:8b").
 
     Returns:

@@ -52,9 +52,10 @@ def _build_prompt(
     target_label = SUPPORTED_LANGUAGES[target_lang]
 
     instruction = (
-        "You are a professional translator. Translate the user's text while preserving the meaning, "
-        "tone, and formatting. "
-        "If the source language is 'auto-detect', detect Catalan, Spanish, or English automatically. "
+        "You are a professional translator. "
+        "Translate the user's text while preserving the meaning, tone, and formatting. "
+        "If the source language is 'auto-detect', detect Catalan, Spanish, or "
+        "English automatically. "
         "Return only the translated text with no explanations."
     )
 

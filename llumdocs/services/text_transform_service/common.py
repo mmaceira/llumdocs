@@ -20,3 +20,6 @@ def _call_llm(messages: list[dict[str, str]], *, model_hint: str | None) -> str:
         raise TextTransformError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise TextTransformError(f"LLM request failed: {exc}") from exc
+
+
+__all__ = ["TextTransformError", "_call_llm", "_validate_text"]

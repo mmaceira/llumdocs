@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -223,3 +225,32 @@ def test_image_describe_endpoint_error(monkeypatch, client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid detail level"
+
+
+def test_image_description_endpoint_calls_full_stack(monkeypatch, client):
+    calls = {"vision": 0}
+
+    def fake_vision_completion(prompt, image_bytes, model_hint=None):
+        calls["vision"] += 1
+        assert prompt
+        assert image_bytes  # resized bytes should be non-empty
+        return "Mock description from fake vision model"
+
+    monkeypatch.setattr(
+        "llumdocs.services.image_description_service.vision_completion",
+        fake_vision_completion,
+    )
+
+    sample_path = Path(__file__).parent / "sample_images" / "pexels-lluis-ab-13142337-34793094.jpg"
+    assert sample_path.exists(), "Sample image for tests is missing"
+
+    with sample_path.open("rb") as image_file:
+        response = client.post(
+            "/api/images/describe",
+            files={"image": (sample_path.name, image_file, "image/jpeg")},
+            data={"detail_level": "short", "max_size": 256, "model": None},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"description": "Mock description from fake vision model"}
+    assert calls["vision"] == 1

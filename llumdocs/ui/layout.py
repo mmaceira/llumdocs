@@ -19,6 +19,11 @@ FEATURES = [
     },
     {"label": "Keyword extraction", "available": True, "description": "Top key concepts"},
     {"label": "Image description", "available": True, "description": "Describe images with AI"},
+    {
+        "label": "Email intelligence",
+        "available": True,
+        "description": "Route + phishing + sentiment",
+    },
     {"label": "Invoice data extraction", "available": False, "description": "Coming soon"},
     {"label": "Document classification", "available": False, "description": "Coming soon"},
 ]
@@ -57,7 +62,7 @@ FEATURE_BUTTON_CSS = """
     width: 100%;
     text-align: left;
     border-radius: 0.75rem;
-    padding: 0.95rem 1.1rem;
+    padding: 0.75rem 1.1rem;
     font-weight: 600;
     border: none;
     transition: background 0.2s ease;
@@ -86,7 +91,7 @@ FEATURE_BUTTON_CSS = """
 /* Grey description text */
 .feature-description {
     margin-top: -0.35rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     font-style: italic;
     color: #6f6f6f;
 }
@@ -95,31 +100,39 @@ FEATURE_BUTTON_CSS = """
 
 def create_feature_sidebar(
     default_feature: str,
-) -> tuple[list[tuple[str, gr.Button, bool, str]], gr.Column]:
-    """Create the feature selection sidebar with buttons."""
+) -> list[tuple[str, gr.Button, bool, str]]:
+    """Create the feature selection sidebar buttons.
+
+    This function should be called within a sidebar Column context.
+
+    Args:
+        default_feature: The feature to mark as active by default
+
+    Returns:
+        List of (label, button, available, elem_id) tuples
+    """
     feature_button_refs: list[tuple[str, gr.Button, bool, str]] = []
 
-    with gr.Column(scale=1) as sidebar:
-        gr.Markdown("### Utilities roadmap")
-        for idx, feature in enumerate(FEATURES):
-            if feature["available"]:
-                if feature["label"] == default_feature:
-                    classes = ["feature-button", "feature-active"]
-                else:
-                    classes = ["feature-button", "feature-available"]
+    gr.Markdown("### Utilities roadmap")
+    for idx, feature in enumerate(FEATURES):
+        if feature["available"]:
+            if feature["label"] == default_feature:
+                classes = ["feature-button", "feature-active"]
             else:
-                classes = ["feature-button", "feature-disabled"]
-            elem_id = f"feature-btn-{idx}"
-            btn = gr.Button(
-                feature["label"],
-                interactive=feature["available"],
-                elem_classes=classes,
-                elem_id=elem_id,
-            )
-            gr.Markdown(f"*{feature['description']}*", elem_classes=["feature-description"])
-            feature_button_refs.append((feature["label"], btn, feature["available"], elem_id))
+                classes = ["feature-button", "feature-available"]
+        else:
+            classes = ["feature-button", "feature-disabled"]
+        elem_id = f"feature-btn-{idx}"
+        btn = gr.Button(
+            feature["label"],
+            interactive=feature["available"],
+            elem_classes=classes,
+            elem_id=elem_id,
+        )
+        gr.Markdown(f"*{feature['description']}*", elem_classes=["feature-description"])
+        feature_button_refs.append((feature["label"], btn, feature["available"], elem_id))
 
-    return feature_button_refs, sidebar
+    return feature_button_refs
 
 
 def create_panel_switcher(

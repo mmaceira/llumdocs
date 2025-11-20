@@ -10,6 +10,7 @@ dependencies = [
   "litellm>=1.0.0",
   "openai>=1.0.0",
   "gradio",
+  "typer",
   "fastapi",
   "uvicorn[standard]",
   "pydantic",
@@ -17,14 +18,19 @@ dependencies = [
   "httpx",
   "numpy",
   "Pillow",
+  "torch",
+  "transformers>=4.45.0",
 ]
+
+[project.scripts]
+llumdocs-api = "llumdocs.api.app:app"
 
 [project.optional-dependencies]
 dev = [
-  "pre-commit",
-  "ruff",
-  "black",
-  "pytest",
+    "pre-commit",
+    "ruff",
+    "black",
+    "pytest",
 ]
 
 [build-system]

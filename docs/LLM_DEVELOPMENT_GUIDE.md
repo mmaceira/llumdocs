@@ -63,3 +63,7 @@ uv run pytest -m "not integration"
 ---
 
 Stick to this guide, keep logic modular, and every PR stays small and easy to review. For architecture expectations, read `docs/LLM_GUIDE_GLOBAL.md`; for capability blueprints, see `docs/LLM_FEATURE_SPECS.md`.
+
+## 6. Prompting Contracts
+
+- Keyword extraction endpoints expect the model to return a JSON array of strings. The service includes fallback parsing for bullet or numbered lists, but treat that as a last resort—tune prompts or switch models if you cannot obtain valid JSON.

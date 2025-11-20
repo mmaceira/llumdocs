@@ -27,6 +27,7 @@ docs/
 - `llumdocs/llm.py` (and related helpers) own every call to LiteLLM. Service code never imports `openai` directly.
 - Services expose small, typed functions that return plain data structures or Pydantic models.
 - API and UI layers only validate inputs, call services, and shape responses for HTTP/Gradio.
+- Hugging Face pipelines live inside `services/email_intelligence_service.py`; they are loaded lazily so tests can patch the private `_get_*` helpers instead of downloading models.
 
 ---
 
@@ -37,6 +38,7 @@ docs/
 - **Prompt discipline:** declare the role, format, guardrails (“do not invent data”), and expected schema in every LLM call.
 - **Logging:** never print secrets or raw customer payloads; rely on metadata (length, ids).
 - **Testing:** unit tests mock LiteLLM; integration tests toggle via `LLUMDOCS_LIVE_TEST_*` variables (`docs/TESTING.md`).
+- **External models:** when relying on Hugging Face pipelines (email intelligence), always wrap them in services with clear validation + error handling so API/UI can stay deterministic during outages.
 
 ---
 

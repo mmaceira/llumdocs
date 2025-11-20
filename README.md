@@ -8,12 +8,13 @@ LlumDocs is a FastAPI + Gradio toolkit that turns raw documents, text and images
 
 | Capability | Algorithms / Services | API & UI surfacing |
 | --- | --- | --- |
-| Text translation (ca/es/en + autodetect) | `llumdocs/services/translation_service.py` | `/api/translate`, Gradio **Translate** tab |
-| Plain-language rewrite | `llumdocs/services/text_transform_service.py` (`simplify`) | `/api/text/plain`, Gradio **Plain language** tab |
-| Technical rewrite | `text_transform_service.py` (`technical`) | `/api/text/technical`, Gradio **Technical tone** tab |
-| Document summarization (short/executive) | `text_transform_service.py` (`summary`) | `/api/documents/summarize`, Gradio **Summaries** tab |
-| Keyword extraction | `text_transform_service.py` (`keywords`) | `/api/text/keywords`, Gradio **Keywords** tab |
-| Image description (caption + detail) | `services/image_description_service.py` | (API endpoint coming soon), wired in service layer |
+| Text translation (ca/es/en + autodetect) | `llumdocs/services/translation_service.py` | `POST /api/translate`, Gradio **Translate** tab |
+| Plain-language rewrite | `llumdocs/services/text_transform_service/simplify.py` | `POST /api/text/plain`, Gradio **Plain language** tab |
+| Technical rewrite | `llumdocs/services/text_transform_service/technical.py` | `POST /api/text/technical`, Gradio **Technical tone** tab |
+| Document summarization (short/executive) | `llumdocs/services/text_transform_service/summary.py` | `POST /api/documents/summarize`, Gradio **Summaries** tab |
+| Keyword extraction | `llumdocs/services/text_transform_service/keywords.py` | `POST /api/text/keywords`, Gradio **Keywords** tab |
+| Image description (caption + detail) | `llumdocs/services/image_description_service.py` | `POST /api/images/describe`, Gradio **Image description** tab |
+| Email routing + phishing & sentiment | `services/email_intelligence_service.py` (`classify_email`, `detect_phishing`, `analyze_sentiment`) | Gradio **Email intelligence** tab (API endpoint coming soon) |
 
 All endpoints are registered in `llumdocs/api/app.py`, and the Gradio UI lives in `llumdocs/ui/main.py`.
 
@@ -38,7 +39,7 @@ All endpoints are registered in `llumdocs/api/app.py`, and the Gradio UI lives i
 
 ## Code Organization
 
-- `llumdocs/services` – Business logic for translation, summaries, keywords, rewrites, and image descriptions.
+- `llumdocs/services` – Business logic for translation, summaries, keywords, rewrites, image descriptions, and email intelligence pipelines.
 - `llumdocs/api` – FastAPI routers that expose each service over HTTP.
 - `llumdocs/ui` – Gradio Blocks UI composed of shared components.
 - `tests` – Unit suites plus `tests/integration/` for live LLM checks.

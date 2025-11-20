@@ -5,6 +5,11 @@ from __future__ import annotations
 import gradio as gr
 
 from llumdocs.llm import LLMConfigurationError
+from llumdocs.services.email_intelligence_service import (
+    DEFAULT_EMAIL_ROUTING_LABELS,
+    EmailIntelligenceError,
+    EmailIntelligenceService,
+)
 from llumdocs.services.image_description_service import ImageDescriptionError, describe_image
 from llumdocs.services.text_transform_service import (
     TextTransformError,
@@ -52,9 +57,7 @@ def create_translation_panel(
 ) -> tuple[gr.Column, callable]:
     """Create the translation panel with inputs and outputs."""
     with gr.Column(visible=True) as translate_panel:
-        gr.Markdown(
-            "Translate text between Catalan, Spanish, and English " "while preserving tone."
-        )
+        gr.Markdown("Translate text between Catalan, Spanish, and English while preserving tone.")
         translate_textbox = gr.Textbox(
             label="Text to translate",
             placeholder="Paste or write your text here…",
@@ -342,7 +345,7 @@ def create_image_panel(
         image_max_size = gr.Dropdown(
             label="Max image size (longest side)",
             choices=["128", "256", "512", "1024"],
-            value="512",
+            value="128",
             info="Larger sizes provide more detail but use more tokens",
         )
         image_button = gr.Button("Describe image", variant="primary")
@@ -390,3 +393,135 @@ def create_image_panel(
         )
 
     return image_panel, image_button
+
+
+def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
+    """Create the email routing + phishing + sentiment panel."""
+    with gr.Column(visible=False) as email_panel:
+        gr.Markdown(
+            "Analyze multilingual emails to route them, flag phishing, and capture sentiment."
+        )
+        gr.Markdown(
+            f"**Routing categories:** {', '.join(DEFAULT_EMAIL_ROUTING_LABELS)}",
+            elem_classes=["caption"],
+        )
+        message_text = gr.Textbox(
+            label="Email or ticket content",
+            placeholder="Bon dia, tinc un problema amb la factura de novembre…",
+            lines=8,
+        )
+        allow_multi = gr.Checkbox(
+            label="Allow multiple labels per message",
+            value=True,
+        )
+        template_text = gr.Textbox(
+            label="Hypothesis template (optional)",
+            placeholder="This message is about {}.",
+        )
+        analyze_button = gr.Button("Analyze email", variant="primary")
+        classification_output = gr.Markdown(label="Classification")
+        phishing_output = gr.Markdown(label="Phishing detection")
+        sentiment_output = gr.Markdown(label="Sentiment analysis")
+        email_error = gr.Markdown("")
+
+        def run_email_analysis(
+            text: str,
+            multi_label_enabled: bool,
+            template_value: str,
+        ) -> tuple[str, str, str, str]:
+            template_arg = template_value.strip() or None
+            try:
+                service = EmailIntelligenceService(
+                    DEFAULT_EMAIL_ROUTING_LABELS,
+                    multi_label=multi_label_enabled,
+                    hypothesis_template=template_arg,
+                )
+                insights = service.analyze_email(text)
+            except EmailIntelligenceError as exc:
+                return "", "", "", str(exc)
+
+            # Format classification output - sorted by score (highest first)
+            classification_items = list(
+                zip(
+                    insights.classification.labels,
+                    insights.classification.scores,
+                    strict=False,
+                )
+            )
+            classification_items.sort(key=lambda x: x[1], reverse=True)
+
+            classification_lines = [
+                "### 📋 Email Categorization",
+                "",
+                (
+                    "This analysis categorizes the email into predefined routing categories "
+                    "to help direct it to the appropriate department or team."
+                ),
+                "",
+            ]
+            for label, score in classification_items:
+                percentage = score * 100
+                classification_lines.append(f"- **{label}**: {percentage:.2f}% ({score:.4f})")
+            if not classification_items:
+                classification_lines.append("No classifications found.")
+            classification_text = "\n".join(classification_lines)
+
+            # Format phishing output - filter out zero scores and generic class labels
+            phishing_label = insights.phishing.label
+            phishing_score = insights.phishing.score
+            phishing_percentage = phishing_score * 100
+
+            # Filter out zero scores and generic class_X labels for cleaner output
+            relevant_scores = {
+                label: score
+                for label, score in insights.phishing.scores_by_label.items()
+                if score > 0.0001 and not label.startswith("class_")
+            }
+
+            phishing_lines = [
+                "### 🛡️ Spam & Phishing Detection",
+                "",
+                (
+                    "This analysis detects whether the email is safe or potentially "
+                    "a phishing attempt or spam message."
+                ),
+                "",
+                f"**Result:** {phishing_label} ({phishing_percentage:.2f}%)",
+            ]
+            if len(relevant_scores) > 1:
+                phishing_lines.append("\n**All scores:**")
+                for label, score in sorted(
+                    relevant_scores.items(), key=lambda x: x[1], reverse=True
+                ):
+                    pct = score * 100
+                    phishing_lines.append(f"- {label}: {pct:.2f}% ({score:.4f})")
+            phishing_text = "\n".join(phishing_lines)
+
+            # Format sentiment output
+            sentiment_label = insights.sentiment.label
+            sentiment_score = insights.sentiment.score
+            sentiment_percentage = sentiment_score * 100
+            sentiment_lines = [
+                "### 😊 Sentiment Analysis",
+                "",
+                (
+                    "This analysis determines the emotional tone of the email, "
+                    "classifying it as positive, neutral, or negative."
+                ),
+                "",
+                (
+                    f"**{sentiment_label.capitalize()}** "
+                    f"({sentiment_percentage:.2f}%, confidence: {sentiment_score:.4f})"
+                ),
+            ]
+            sentiment_text = "\n".join(sentiment_lines)
+
+            return classification_text, phishing_text, sentiment_text, ""
+
+        analyze_button.click(
+            fn=run_email_analysis,
+            inputs=[message_text, allow_multi, template_text],
+            outputs=[classification_output, phishing_output, sentiment_output, email_error],
+        )
+
+    return email_panel, analyze_button
