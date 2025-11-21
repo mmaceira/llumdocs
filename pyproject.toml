@@ -18,8 +18,6 @@ dependencies = [
   "httpx",
   "numpy",
   "Pillow",
-  "torch",
-  "transformers>=4.45.0",
 ]
 
 [project.scripts]
@@ -27,6 +25,10 @@ llumdocs-api = "llumdocs.api.app:main"
 llumdocs-ui = "llumdocs.ui.main:main"
 
 [project.optional-dependencies]
+email = [
+  "torch>=2.5.0",
+  "transformers>=4.45.0",
+]
 dev = [
   "pre-commit",
   "ruff",

@@ -1,47 +1,67 @@
 # docker/Dockerfile
 #
-# Multi-stage Dockerfile with shared CPU-only base and three targets:
-#   - api      : FastAPI backend
-#   - api_hf   : FastAPI backend with HuggingFace models pre-downloaded
-#   - ui       : Gradio UI
+# Multi-stage Dockerfile with optimized targets:
+#   - api          : FastAPI backend (CPU-only, no email intelligence)
+#   - api_email_gpu: FastAPI backend with email intelligence (GPU-enabled)
+#   - ui           : Gradio UI (CPU-only, no email intelligence)
 #
-# All stages are CPU-only; GPU is handled by the Ollama container.
+# GPU support is handled by the Ollama container and the api_email_gpu target.
 
 # =========================
-# Base image (CPU-only)
+# Builder stage
 # =========================
-FROM python:3.12-slim AS base
+FROM python:3.12-slim AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
-# System deps (minimal; extend if you hit missing libs)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install LlumDocs into the image
-# (we copy only what is needed to install the package)
-COPY pyproject.toml README.md ./
+# Copy only what's needed for installation
+COPY pyproject.toml ./
 COPY llumdocs ./llumdocs
 
-RUN pip install --no-cache-dir .
+# Install project in a virtual environment
+RUN python -m venv /venv \
+    && /venv/bin/pip install --upgrade pip \
+    && /venv/bin/pip install . \
+    && find /venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true \
+    && find /venv -name "*.pyc" -delete
 
 # =========================
-# API image (FastAPI, CPU)
+# Runtime base (CPU-only, no build tools)
 # =========================
-FROM base AS api
+FROM python:3.12-slim AS runtime
+
+ENV PATH="/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+# Copy virtual environment from builder
+COPY --from=builder /venv /venv
+
+# Copy only the source code (no tests, docs, etc.)
+COPY llumdocs ./llumdocs
+
+# =========================
+# API image (CPU-only, no email intelligence)
+# =========================
+FROM runtime AS api
 
 # Align with .env.template default
 ENV HF_HOME=/models/hf
 
 RUN mkdir -p /models/hf
-
-# Install email intelligence extra (required for HF models)
-RUN pip install --no-cache-dir ".[email]"
 
 EXPOSE 8000
 
@@ -49,9 +69,38 @@ EXPOSE 8000
 CMD ["uvicorn", "llumdocs.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # ==========================================
-# API image with bundled HuggingFace models
+# API image with email intelligence (GPU-enabled)
 # ==========================================
-FROM base AS api_hf
+FROM runtime AS api_email_gpu
+
+ENV HF_HOME=/models/hf \
+    LLUMDOCS_ENABLE_EMAIL_INTEL="true" \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# We need pyproject.toml to install the [email] extra
+COPY pyproject.toml ./
+
+# Install build tools temporarily, then install [email] extra and clean up
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+ && pip install --no-cache-dir ".[email]" \
+ && apt-get remove -y build-essential \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/* /root/.cache/pip \
+ && find /venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true \
+ && find /venv -name "*.pyc" -delete
+
+RUN mkdir -p /models/hf
+
+EXPOSE 8000
+
+CMD ["uvicorn", "llumdocs.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ==========================================
+# API image with bundled HuggingFace models (legacy, CPU-only)
+# ==========================================
+FROM runtime AS api_hf
 
 ENV HF_HOME=/models/hf
 
@@ -69,12 +118,29 @@ EXPOSE 8000
 CMD ["uvicorn", "llumdocs.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # =========================
-# Gradio UI image
+# Gradio UI image (CPU-only, with email intelligence)
 # =========================
-FROM base AS ui
+FROM runtime AS ui
 
-# Install email intelligence extra (required for email intelligence feature in UI)
-RUN pip install --no-cache-dir ".[email]"
+ENV HF_HOME=/models/hf \
+    LLUMDOCS_ENABLE_EMAIL_INTEL="true" \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# We need pyproject.toml to install the [email] extra
+COPY pyproject.toml ./
+
+# Install build tools temporarily, then install [email] extra and clean up
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+ && pip install --no-cache-dir ".[email]" \
+ && apt-get remove -y build-essential \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/* /root/.cache/pip \
+ && find /venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true \
+ && find /venv -name "*.pyc" -delete
+
+RUN mkdir -p /models/hf
 
 EXPOSE 7860
 

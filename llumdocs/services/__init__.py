@@ -7,15 +7,28 @@ translation and various text transformation utilities.
 
 from __future__ import annotations
 
-# Email intelligence is now a core feature (transformers/torch are required dependencies)
-from .email_intelligence_service import (
-    DEFAULT_EMAIL_ROUTING_LABELS,
-    EmailIntelligenceError,
-    EmailIntelligenceService,
-    analyze_sentiment,
-    classify_email,
-    detect_phishing,
-)
+# Email intelligence is optional (requires [email] extra with torch/transformers)
+try:
+    from .email_intelligence_service import (
+        DEFAULT_EMAIL_ROUTING_LABELS,
+        EmailIntelligenceError,
+        EmailIntelligenceService,
+        analyze_sentiment,
+        classify_email,
+        detect_phishing,
+    )
+
+    EMAIL_INTEL_AVAILABLE = True
+except ImportError:
+    EMAIL_INTEL_AVAILABLE = False
+    # Create dummy exports for type checking and runtime checks
+    DEFAULT_EMAIL_ROUTING_LABELS = []  # type: ignore[assignment]
+    EmailIntelligenceError = RuntimeError  # type: ignore[assignment, misc]
+    EmailIntelligenceService = None  # type: ignore[assignment, misc]
+    analyze_sentiment = None  # type: ignore[assignment, misc]
+    classify_email = None  # type: ignore[assignment, misc]
+    detect_phishing = None  # type: ignore[assignment, misc]
+
 from .text_transform_service import (
     SummaryType,
     TextTransformError,
@@ -35,6 +48,7 @@ __all__ = [
     "make_text_more_technical",
     "simplify_text",
     "summarize_document",
+    "EMAIL_INTEL_AVAILABLE",
     "DEFAULT_EMAIL_ROUTING_LABELS",
     "EmailIntelligenceError",
     "EmailIntelligenceService",

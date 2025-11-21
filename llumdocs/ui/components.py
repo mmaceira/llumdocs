@@ -7,6 +7,7 @@ import gradio as gr
 from llumdocs.llm import LLMConfigurationError
 from llumdocs.services import (
     DEFAULT_EMAIL_ROUTING_LABELS,
+    EMAIL_INTEL_AVAILABLE,
     EmailIntelligenceError,
     EmailIntelligenceService,
 )
@@ -496,6 +497,18 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
             multi_label_enabled: bool,
             template_value: str,
         ) -> tuple[str, str, str, str]:
+            if not EMAIL_INTEL_AVAILABLE or EmailIntelligenceService is None:
+                return (
+                    "",
+                    "",
+                    "",
+                    format_error_message(
+                        EmailIntelligenceError(
+                            "Email intelligence is not available. "
+                            "Install the [email] extra: pip install 'llumdocs[email]'"
+                        )
+                    ),
+                )
             template_arg = template_value.strip() or None
             routing_labels = (
                 DEFAULT_EMAIL_ROUTING_LABELS

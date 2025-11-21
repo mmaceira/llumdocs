@@ -29,10 +29,14 @@ env
 .coverage
 htmlcov
 .tox
+tests/
+test_*.py
+*_test.py
 
 # Documentation
 *.md
 !README.md
+docs/
 
 # Docker
 Dockerfile
