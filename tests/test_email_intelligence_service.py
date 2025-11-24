@@ -17,7 +17,7 @@ from llumdocs.services.email_intelligence_service import (
 
 @patch("llumdocs.services.email_intelligence_service._get_zero_shot_pipeline")
 def test_classify_email_returns_sorted_labels(mock_pipeline):
-    def fake_pipeline(text, candidate_labels, multi_label, hypothesis_template):
+    def fake_pipeline(text, candidate_labels, multi_label, hypothesis_template, **kwargs):
         assert text == "Factura incorrecta"
         assert candidate_labels == ["support", "billing"]
         assert multi_label is True
