@@ -31,18 +31,27 @@ router = APIRouter(prefix="/api", tags=["images"])
 async def describe(
     image: Annotated[UploadFile, File(description="Image file to describe")],
     detail_level: Annotated[
-        str, Form(description="Level of detail: 'short' or 'detailed'")
+        str,
+        Form(
+            description="Level of detail. Accepted values: 'short' or 'detailed'",
+            examples=["short", "detailed"],
+        ),
     ] = "short",
     max_size: Annotated[
-        int, Form(description="Maximum size for the longest side in pixels (default: 512)")
+        int,
+        Form(
+            description="Maximum size for the longest side in pixels (1-2048, default: 512)",
+            examples=[512, 1024, 2048],
+        ),
     ] = 512,
     model: Annotated[
         str | None,
         Form(
             description=(
                 "Optional LiteLLM vision model identifier override "
-                "(e.g., 'o4-mini', 'ollama/qwen3-vl:8b')"
-            )
+                "(e.g., 'o4-mini', 'ollama/qwen3-vl:8b'). Set to empty or omit to use default."
+            ),
+            examples=[None, "o4-mini", "ollama/qwen3-vl:8b"],
         ),
     ] = None,
 ) -> ImageDescriptionResponse:
@@ -50,6 +59,17 @@ async def describe(
     Generate a textual description of an uploaded image.
 
     Supported image formats: JPEG, PNG, GIF, WebP
+
+    **Example curl command:**
+    ```bash
+    curl -X 'POST' \
+      'http://localhost:8000/api/images/describe' \
+      -H 'accept: application/json' \
+      -F 'image=@/path/to/image.jpg' \
+      -F 'detail_level=short' \
+      -F 'max_size=512' \
+      -F 'model='
+    ```
     """
     # Validate max_size
     if max_size < 1 or max_size > 2048:

@@ -37,6 +37,9 @@ SENTIMENT_MODEL_ID = os.getenv(
     "LLUMDOCS_EMAIL_SENTIMENT_MODEL",
     "cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual",
 )
+# Hugging Face email models typically cap their context at 512 tokens. Truncate inputs
+# to avoid the RuntimeError seen when longer emails are analyzed.
+MAX_EMAIL_SEQUENCE_LENGTH = int(os.getenv("LLUMDOCS_EMAIL_MAX_TOKENS", "512"))
 
 # Default routing categories for email classification.
 # The zero-shot model can classify into ANY labels you provide;
@@ -82,6 +85,7 @@ class PhishingDetection:
 class SentimentPrediction:
     label: str
     score: float
+    scores_by_label: Dict[str, float]
 
 
 @dataclass(frozen=True)
@@ -176,7 +180,20 @@ def _get_zero_shot_pipeline() -> Pipeline:
 
 
 def _get_phishing_label_map() -> Dict[str, str]:
-    """Get mapping from model's LABEL_X format to human-readable labels."""
+    """
+    Get mapping from model's LABEL_X format to human-readable labels.
+
+    The cybersectony/phishing-email-detection-distilbert_v2.1 model uses:
+    - LABEL_0: legitimate_email (safe category)
+    - LABEL_1: phishing_url (phishing category - note: label name is misleading,
+      this class can match emails without URLs)
+    - LABEL_2: legitimate_url (safe category)
+    - LABEL_3: phishing_url_alt (phishing category - note: label name is misleading,
+      this class can match emails without URLs)
+
+    Note: The label names reference the training data structure but don't necessarily
+    mean the model detected a URL. These are just class names.
+    """
     global _PHISHING_LABEL_MAP
     if _PHISHING_LABEL_MAP is None:
         try:
@@ -185,33 +202,40 @@ def _get_phishing_label_map() -> Dict[str, str]:
             if id2label:
                 _PHISHING_LABEL_MAP = {}
                 for label_id, label_name in id2label.items():
-                    # Try to find a readable name - common patterns:
-                    # LABEL_0 -> safe/legitimate, LABEL_1 -> phishing/spam
                     if label_name.startswith("LABEL_"):
-                        # Default mapping based on common phishing model structure
-                        # Most phishing models are binary: safe vs phishing
+                        # Map based on cybersectony model structure
+                        # Keep original distinct label names to preserve all information
+                        # Note: Label names reference training data categories but don't
+                        # necessarily mean the model detected a URL in the input
                         if label_id == 0:
-                            _PHISHING_LABEL_MAP[label_name] = "safe"
+                            _PHISHING_LABEL_MAP[label_name] = "legitimate_email"
                         elif label_id == 1:
-                            _PHISHING_LABEL_MAP[label_name] = "phishing"
+                            _PHISHING_LABEL_MAP[label_name] = "phishing_url"
+                        elif label_id == 2:
+                            _PHISHING_LABEL_MAP[label_name] = "legitimate_url"
+                        elif label_id == 3:
+                            _PHISHING_LABEL_MAP[label_name] = "phishing_url_alt"
                         else:
-                            # For additional labels beyond binary, use a generic name
-                            # but we'll filter these out in the UI if they have zero scores
+                            # For any additional labels beyond the known 4
                             _PHISHING_LABEL_MAP[label_name] = f"class_{label_id}"
                     else:
                         # Already readable - use as-is
                         _PHISHING_LABEL_MAP[label_name] = label_name
             else:
-                # Fallback: create default mapping for binary classification
+                # Fallback: create default mapping for the 4-class model
                 _PHISHING_LABEL_MAP = {
-                    "LABEL_0": "safe",
-                    "LABEL_1": "phishing",
+                    "LABEL_0": "legitimate_email",
+                    "LABEL_1": "phishing_url",
+                    "LABEL_2": "legitimate_url",
+                    "LABEL_3": "phishing_url_alt",
                 }
         except Exception:  # noqa: BLE001
-            # Fallback if config loading fails
+            # Fallback if config loading fails - use the known 4-class mapping
             _PHISHING_LABEL_MAP = {
-                "LABEL_0": "safe",
-                "LABEL_1": "phishing",
+                "LABEL_0": "legitimate_email",
+                "LABEL_1": "phishing_url",
+                "LABEL_2": "legitimate_url",
+                "LABEL_3": "phishing_url_alt",
             }
     return _PHISHING_LABEL_MAP
 
@@ -307,6 +331,8 @@ def classify_email(
             candidate_labels=labels,
             multi_label=multi_label,
             hypothesis_template=template,
+            truncation=True,
+            max_length=MAX_EMAIL_SEQUENCE_LENGTH,
         )
     except RuntimeError as exc:
         # If GPU out of memory during inference, try CPU fallback
@@ -325,6 +351,8 @@ def classify_email(
                 candidate_labels=labels,
                 multi_label=multi_label,
                 hypothesis_template=template,
+                truncation=True,
+                max_length=MAX_EMAIL_SEQUENCE_LENGTH,
             )
         else:
             raise EmailIntelligenceError(str(exc)) from exc
@@ -352,7 +380,9 @@ def detect_phishing(text: str) -> PhishingDetection:
         pipeline_runner = _get_phishing_pipeline()
         raw = pipeline_runner(
             text_value,
-            return_all_scores=True,
+            top_k=None,
+            truncation=True,
+            max_length=MAX_EMAIL_SEQUENCE_LENGTH,
         )
     except RuntimeError as exc:
         # If GPU out of memory during inference, try CPU fallback
@@ -368,7 +398,9 @@ def detect_phishing(text: str) -> PhishingDetection:
             pipeline_runner = _PHISHING_PIPELINE
             raw = pipeline_runner(
                 text_value,
-                return_all_scores=True,
+                top_k=None,
+                truncation=True,
+                max_length=MAX_EMAIL_SEQUENCE_LENGTH,
             )
         else:
             raise EmailIntelligenceError(str(exc)) from exc
@@ -385,7 +417,7 @@ def detect_phishing(text: str) -> PhishingDetection:
 
     label_map = _get_phishing_label_map()
 
-    # Map model labels to human-readable labels
+    # Map model labels to human-readable labels, keeping all individual scores
     ordered = {}
     for item in scores:
         if "label" in item and "score" in item:
@@ -396,8 +428,29 @@ def detect_phishing(text: str) -> PhishingDetection:
     if not ordered:
         raise EmailIntelligenceError("Phishing model returned no labels.")
 
-    best_label = max(ordered, key=ordered.get)
-    return PhishingDetection(label=best_label, score=ordered[best_label], scores_by_label=ordered)
+    # Aggregate probabilities into safe vs phishing categories
+    # Safe: legitimate_email + legitimate_url
+    # Phishing: phishing_url + phishing_url_alt
+    safe_score = ordered.get("legitimate_email", 0.0) + ordered.get("legitimate_url", 0.0)
+    phishing_score = ordered.get("phishing_url", 0.0) + ordered.get("phishing_url_alt", 0.0)
+
+    # Determine the best category (safe or phishing)
+    if phishing_score > safe_score:
+        best_label = "phishing"
+        best_score = phishing_score
+    else:
+        best_label = "safe"
+        best_score = safe_score
+
+    # Include aggregated scores in the output for transparency
+    aggregated = {
+        "safe": safe_score,
+        "phishing": phishing_score,
+    }
+    # Merge with individual label scores
+    final_scores = {**ordered, **aggregated}
+
+    return PhishingDetection(label=best_label, score=best_score, scores_by_label=final_scores)
 
 
 def analyze_sentiment(text: str) -> SentimentPrediction:
@@ -410,7 +463,12 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
     pipeline_runner: Pipeline | None = None
     try:
         pipeline_runner = _get_sentiment_pipeline()
-        prediction = pipeline_runner(text_value)[0]
+        predictions = pipeline_runner(
+            text_value,
+            truncation=True,
+            max_length=MAX_EMAIL_SEQUENCE_LENGTH,
+            return_all_scores=True,
+        )[0]
     except RuntimeError as exc:
         # If GPU out of memory during inference, try CPU fallback
         if "out of memory" in str(exc).lower() or "cuda" in str(exc).lower():
@@ -426,7 +484,12 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
                 device=-1,  # Force CPU
             )
             pipeline_runner = _SENTIMENT_PIPELINE
-            prediction = pipeline_runner(text_value)[0]
+            predictions = pipeline_runner(
+                text_value,
+                truncation=True,
+                max_length=MAX_EMAIL_SEQUENCE_LENGTH,
+                return_all_scores=True,
+            )[0]
         else:
             raise EmailIntelligenceError(str(exc)) from exc
     except OSError as exc:
@@ -435,7 +498,24 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
         if pipeline_runner is not None:
             _release_pipeline("_SENTIMENT_PIPELINE")
 
-    return SentimentPrediction(label=str(prediction["label"]), score=float(prediction["score"]))
+    # Extract all scores and find the top prediction
+    scores_by_label: Dict[str, float] = {}
+    top_label = ""
+    top_score = 0.0
+
+    for pred in predictions:
+        label = str(pred["label"])
+        score = float(pred["score"])
+        scores_by_label[label] = score
+        if score > top_score:
+            top_score = score
+            top_label = label
+
+    return SentimentPrediction(
+        label=top_label,
+        score=top_score,
+        scores_by_label=scores_by_label,
+    )
 
 
 class EmailIntelligenceService:

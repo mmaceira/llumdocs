@@ -53,9 +53,10 @@ def chat_with_llm(model_choice, user_message, history):
         # Prepare completion arguments
         kwargs = {"model": model_choice, "messages": [{"role": "user", "content": user_message}]}
 
-        # Add API base for Ollama
+        # Add API base and keep_alive for Ollama
         if is_ollama:
             kwargs["api_base"] = "http://localhost:11434"
+            kwargs["keep_alive"] = 0  # Unload model immediately after inference
 
         # Get response from LiteLLM
         response = completion(**kwargs)

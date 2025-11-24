@@ -935,8 +935,6 @@ dependencies = [
     { name = "pillow" },
     { name = "pydantic" },
     { name = "python-dotenv" },
-    { name = "torch" },
-    { name = "transformers" },
     { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -947,6 +945,10 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
+]
+email = [
+    { name = "torch" },
+    { name = "transformers" },
 ]
 
 [package.metadata]
@@ -964,12 +966,12 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "python-dotenv" },
     { name = "ruff", marker = "extra == 'dev'" },
-    { name = "torch" },
-    { name = "transformers", specifier = ">=4.45.0" },
+    { name = "torch", marker = "extra == 'email'", specifier = ">=2.5.0" },
+    { name = "transformers", marker = "extra == 'email'", specifier = ">=4.45.0" },
     { name = "typer" },
     { name = "uvicorn", extras = ["standard"] },
 ]
-provides-extras = ["dev"]
+provides-extras = ["email", "dev"]
 
 [[package]]
 name = "markdown-it-py"

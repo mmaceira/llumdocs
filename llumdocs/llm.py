@@ -15,13 +15,21 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from litellm import completion
 from litellm.exceptions import (
-    InternalServerError,
+    APIError,
     RateLimitError,
     Timeout,
 )
 
 # Configurable timeout for LLM calls (in seconds)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLUMDOCS_LLM_TIMEOUT_SECONDS", "30.0"))
+# Vision models are slower, so allow a separate (longer) timeout while still
+# honoring the global fallback when explicitly set.
+VISION_LLM_TIMEOUT_SECONDS = float(
+    os.getenv(
+        "LLUMDOCS_VISION_TIMEOUT_SECONDS",
+        os.getenv("LLUMDOCS_LLM_TIMEOUT_SECONDS", "60.0"),
+    )
+)
 
 
 class LLMConfigurationError(RuntimeError):
@@ -108,7 +116,7 @@ def resolve_model(env_preference: Optional[str] = None) -> ModelConfig:
                 continue
 
             api_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
-            return ModelConfig(model_id=model, kwargs={"api_base": api_base})
+            return ModelConfig(model_id=model, kwargs={"api_base": api_base, "keep_alive": 0})
 
         # Assume OpenAI-compatible API for any other model id
         if os.getenv("OPENAI_API_KEY"):
@@ -135,7 +143,7 @@ def resolve_vision_model(env_preference: Optional[str] = None) -> ModelConfig:
                 continue
 
             api_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
-            return ModelConfig(model_id=model, kwargs={"api_base": api_base})
+            return ModelConfig(model_id=model, kwargs={"api_base": api_base, "keep_alive": 0})
 
         # Assume OpenAI-compatible API for any other model id
         if os.getenv("OPENAI_API_KEY"):
@@ -199,11 +207,11 @@ def chat_completion(messages: List[Dict[str, str]], model_hint: Optional[str] = 
             response = completion(
                 model=config.model_id,
                 messages=messages,
-                timeout=LLM_TIMEOUT_SECONDS,
+                timeout=VISION_LLM_TIMEOUT_SECONDS,
                 **config.kwargs,
             )
             return response.choices[0].message.content.strip()
-        except (InternalServerError, Timeout, RateLimitError):
+        except (APIError, Timeout, RateLimitError):
             # Retry on transient errors
             if attempt < max_retries - 1:
                 # Exponential backoff with jitter
@@ -270,11 +278,11 @@ def vision_completion(
             response = completion(
                 model=config.model_id,
                 messages=messages,
-                timeout=LLM_TIMEOUT_SECONDS,
+                timeout=VISION_LLM_TIMEOUT_SECONDS,
                 **config.kwargs,
             )
             return response.choices[0].message.content.strip()
-        except (InternalServerError, Timeout, RateLimitError):
+        except (APIError, Timeout, RateLimitError):
             # Retry on transient errors
             if attempt < max_retries - 1:
                 # Exponential backoff with jitter

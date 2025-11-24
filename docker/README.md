@@ -136,6 +136,9 @@ Key variables:
 - `OPENAI_API_KEY` - Your OpenAI API key (optional, if using Ollama only)
 - `LLUMDOCS_DEFAULT_MODEL` - Default text model (e.g., `gpt-4o-mini` or `ollama/llama3.1:8b`)
 - `LLUMDOCS_DEFAULT_VISION_MODEL` - Default vision model (e.g., `o4-mini` or `ollama/qwen3-vl:8b`)
+- `LLUMDOCS_LLM_TIMEOUT_SECONDS` - Timeout for text calls (default 30 seconds)
+- `LLUMDOCS_VISION_TIMEOUT_SECONDS` - Timeout for vision calls (default 60 seconds)
+- `LLUMDOCS_EMAIL_MAX_TOKENS` - Max tokens per email sent to HuggingFace classifiers (default 512)
 - `OLLAMA_API_BASE` - Ollama server URL (defaults to `http://ollama:11434` for Docker Ollama, or `http://host.docker.internal:11434` for host Ollama)
 - `HF_HOME` - HuggingFace cache directory (defaults to `/models/hf` in containers)
 

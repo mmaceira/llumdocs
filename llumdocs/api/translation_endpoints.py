@@ -10,21 +10,49 @@ from llumdocs.services.translation_service import TranslationError, translate_te
 
 
 class TranslationRequest(BaseModel):
-    text: str = Field(..., min_length=1, description="Text to translate")
+    text: str = Field(
+        ...,
+        min_length=1,
+        description="Text to translate",
+        examples=["Hello, how are you?", "Bon dia, com estàs?"],
+    )
     source_lang: str = Field(
         "auto",
         pattern="^(auto|ca|es|en)$",
-        description="Source language code or 'auto'",
+        description=(
+            "Source language code. Accepted values: "
+            "'auto' (auto-detect), 'ca' (Catalan), 'es' (Spanish), 'en' (English)"
+        ),
+        examples=["auto", "ca", "es", "en"],
     )
     target_lang: str = Field(
         "ca",
         pattern="^(ca|es|en)$",
-        description="Target language code",
+        description=(
+            "Target language code. Accepted values: "
+            "'ca' (Catalan), 'es' (Spanish), 'en' (English)"
+        ),
+        examples=["ca", "es", "en"],
     )
     model: str | None = Field(
         default=None,
-        description="Optional LiteLLM model identifier override",
+        description=(
+            "Optional LiteLLM model identifier override "
+            "(e.g., 'gpt-4o-mini', 'ollama/llama3.1:8b'). "
+            "Set to null or omit to use default."
+        ),
+        examples=[None, "gpt-4o-mini", "ollama/llama3.1:8b"],
     )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "Hello, how are you?",
+                "source_lang": "auto",
+                "target_lang": "ca",
+                "model": None,
+            }
+        }
 
 
 class TranslationResponse(BaseModel):
@@ -43,6 +71,20 @@ router = APIRouter(prefix="/api", tags=["translation"])
 async def translate(payload: TranslationRequest) -> TranslationResponse:
     """
     Translate text using the translation service.
+
+    **Example curl command:**
+    ```bash
+    curl -X 'POST' \
+      'http://localhost:8000/api/translate' \
+      -H 'accept: application/json' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "text": "Hello, how are you?",
+        "source_lang": "auto",
+        "target_lang": "ca",
+        "model": null
+      }'
+    ```
     """
 
     try:

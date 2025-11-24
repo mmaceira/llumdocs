@@ -15,8 +15,9 @@ uv run llumdocs-ui
 # 2. (Optional) Launch FastAPI in another terminal
 uv run uvicorn llumdocs.api.app:app --reload
 
-# Then open http://localhost:7860 for the UI.
-# FastAPI will default to http://127.0.0.1:8000 with OpenAPI docs at /docs.
+# Then open:
+# - http://localhost:7860 for the Gradio UI
+# - http://localhost:8000/docs for the interactive API documentation (Swagger UI)
 ```
 
 ---
@@ -43,6 +44,18 @@ All endpoints are registered in `llumdocs/api/app.py`, and the Gradio UI lives i
 - **Gradio UI** – Launch `python -m llumdocs.ui.main` to get a multi-tab interface that exposes each utility with minimal inputs. Great for demos and non-technical teammates.
 - **REST API** – Run `uv run uvicorn llumdocs.api.app:app --reload` (or `uvicorn llumdocs.api.app:app`) and call endpoints such as `POST /api/translate` or `POST /api/text/keywords`. Responses are JSON-friendly for ERP/RPA integration.
 - **Python services** – Import the services directly (`from llumdocs.services.translation_service import translate_text`) to embed transformations inside automations or background jobs.
+
+### Interactive API Documentation (Swagger UI)
+
+Once the FastAPI server is running, visit **`http://localhost:8000/docs`** for interactive API documentation powered by Swagger UI. This interface allows you to:
+
+- **Browse all endpoints** – See all available POST endpoints with their parameters
+- **View examples** – Each endpoint includes example request bodies with accepted values
+- **Test endpoints directly** – Use the "Try it out" button to send requests and see responses
+- **Copy curl commands** – Each endpoint's documentation includes ready-to-use curl examples
+- **Understand schemas** – View request/response models with field descriptions and constraints
+
+The Swagger UI automatically includes all the examples and accepted values we've configured, making it easy to explore and test the API without writing code.
 
 ### API Example
 
@@ -114,6 +127,38 @@ This starts:
 | Vision tools | `o4-mini` or `ollama/qwen3-vl:8b` |
 
 See `docs/INSTALL.md` for full model configuration options.
+
+## Model Unloading
+
+LlumDocs sets `keep_alive=0` for all Ollama requests (via LiteLLM and direct calls) to unload models immediately after inference. This frees VRAM/RAM between calls, which is especially useful when running multiple models or when GPU memory is limited.
+
+**Trade-off:** The first token latency on subsequent calls will be higher due to model reload, but memory is freed between requests.
+
+**Override:** If you need to keep models loaded for faster subsequent calls, you can set a per-model `keep_alive` value in your LiteLLM configuration (e.g., `keep_alive: "300s"` for 5 minutes). However, this is not recommended for production deployments with limited resources.
+
+**Configuration examples:**
+
+```yaml
+# LiteLLM YAML config (if using model_list)
+model_list:
+  - model_name: "llama3.1"
+    litellm_params:
+      model: "ollama_chat/llama3.1:8b"
+      api_base: "http://localhost:11434"
+      keep_alive: 0
+```
+
+```python
+# Python config (llumdocs/llm.py automatically sets this)
+from litellm import completion
+
+response = completion(
+    model="ollama/llama3.1:8b",
+    messages=[{"role": "user", "content": "Hello"}],
+    api_base="http://localhost:11434",
+    keep_alive=0  # Automatically set by llumdocs.llm
+)
+```
 
 ---
 

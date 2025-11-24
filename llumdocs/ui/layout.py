@@ -6,11 +6,10 @@ import gradio as gr
 
 FEATURES = [
     {"label": "Translate text", "available": True, "description": "Catalan ⇄ Spanish ⇄ English"},
-    {"label": "Make text more technical", "available": True, "description": "Formal rewrite"},
     {
-        "label": "Simplify text (plain language)",
+        "label": "Text transformation",
         "available": True,
-        "description": "Plain-language rewrite",
+        "description": "Technical, simplify, or company tone",
     },
     {
         "label": "Document summaries",
@@ -94,6 +93,14 @@ FEATURE_BUTTON_CSS = """
     margin-bottom: 0.5rem;
     font-style: italic;
     color: #6f6f6f;
+}
+
+/* Processing status message styling */
+.processing-status {
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+    margin-top: 0.5rem;
 }
 """
 

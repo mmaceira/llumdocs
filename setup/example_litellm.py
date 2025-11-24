@@ -24,6 +24,7 @@ def example_ollama():
         model="ollama/llama3.1:8b",
         messages=[{"role": "user", "content": "Explain what LiteLLM is in one sentence."}],
         api_base="http://localhost:11434",  # Default Ollama endpoint
+        keep_alive=0,  # Unload model immediately after inference
     )
 
     print(f"Response: {response.choices[0].message.content}\n")
@@ -62,7 +63,12 @@ def example_unified():
 
     # Add Ollama
     models.append(
-        {"name": "Ollama", "model": "ollama/llama3.1:8b", "api_base": "http://localhost:11434"}
+        {
+            "name": "Ollama",
+            "model": "ollama/llama3.1:8b",
+            "api_base": "http://localhost:11434",
+            "keep_alive": 0,  # Unload model immediately after inference
+        }
     )
 
     # Add OpenAI if key is available
@@ -79,6 +85,8 @@ def example_unified():
 
             if model_config["api_base"]:
                 kwargs["api_base"] = model_config["api_base"]
+            if "keep_alive" in model_config:
+                kwargs["keep_alive"] = model_config["keep_alive"]
 
             response = completion(**kwargs)
             print(f"{model_config['name']} response: {response.choices[0].message.content}")

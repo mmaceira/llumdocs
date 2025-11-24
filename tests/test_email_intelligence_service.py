@@ -41,46 +41,91 @@ def test_classify_email_requires_labels():
 
 
 @patch("llumdocs.services.email_intelligence_service._get_phishing_pipeline")
-def test_detect_phishing_returns_best_label(mock_pipeline):
-    def fake_pipeline(text, return_all_scores):
-        assert return_all_scores is True
-        return [[{"label": "safe", "score": 0.2}, {"label": "phishing", "score": 0.8}]]
+@patch("llumdocs.services.email_intelligence_service._get_phishing_label_map")
+def test_detect_phishing_returns_best_label(mock_label_map, mock_pipeline):
+    def fake_pipeline(text, top_k, **kwargs):
+        assert top_k is None
+        return [
+            [
+                {"label": "LABEL_0", "score": 0.1},  # legitimate_email
+                {"label": "LABEL_1", "score": 0.8},  # phishing_url
+                {"label": "LABEL_2", "score": 0.05},  # legitimate_url
+                {"label": "LABEL_3", "score": 0.05},  # phishing_url_alt
+            ]
+        ]
 
     mock_pipeline.return_value = fake_pipeline
+    mock_label_map.return_value = {
+        "LABEL_0": "legitimate_email",
+        "LABEL_1": "phishing_url",
+        "LABEL_2": "legitimate_url",
+        "LABEL_3": "phishing_url_alt",
+    }
 
     result = detect_phishing("Urgent password reset")
 
+    # Should aggregate: safe = 0.1 + 0.05 = 0.15, phishing = 0.8 + 0.05 = 0.85
     assert result.label == "phishing"
-    assert result.score == pytest.approx(0.8)
-    assert result.scores_by_label["safe"] == pytest.approx(0.2)
+    assert result.score == pytest.approx(0.85)
+    assert result.scores_by_label["safe"] == pytest.approx(0.15)
+    assert result.scores_by_label["phishing"] == pytest.approx(0.85)
+    # Check individual labels are preserved
+    assert result.scores_by_label["legitimate_email"] == pytest.approx(0.1)
+    assert result.scores_by_label["phishing_url"] == pytest.approx(0.8)
+    assert result.scores_by_label["legitimate_url"] == pytest.approx(0.05)
+    assert result.scores_by_label["phishing_url_alt"] == pytest.approx(0.05)
 
 
 @patch("llumdocs.services.email_intelligence_service._get_phishing_label_map")
 @patch("llumdocs.services.email_intelligence_service._get_phishing_pipeline")
 def test_detect_phishing_maps_label_x_to_readable(mock_pipeline, mock_label_map):
-    """Test that LABEL_X format gets mapped to human-readable labels."""
+    """Test that LABEL_X format gets mapped to human-readable labels and aggregated."""
 
-    def fake_pipeline(text, return_all_scores):
-        assert return_all_scores is True
-        return [[{"label": "LABEL_0", "score": 0.2}, {"label": "LABEL_1", "score": 0.8}]]
+    def fake_pipeline(text, top_k, **kwargs):
+        assert top_k is None
+        return [
+            [
+                {"label": "LABEL_0", "score": 0.7},  # legitimate_email
+                {"label": "LABEL_1", "score": 0.1},  # phishing_url
+                {"label": "LABEL_2", "score": 0.15},  # legitimate_url
+                {"label": "LABEL_3", "score": 0.05},  # phishing_url_alt
+            ]
+        ]
 
     mock_pipeline.return_value = fake_pipeline
-    mock_label_map.return_value = {"LABEL_0": "safe", "LABEL_1": "phishing"}
+    mock_label_map.return_value = {
+        "LABEL_0": "legitimate_email",
+        "LABEL_1": "phishing_url",
+        "LABEL_2": "legitimate_url",
+        "LABEL_3": "phishing_url_alt",
+    }
 
-    result = detect_phishing("Urgent password reset")
+    result = detect_phishing("Normal email")
 
-    assert result.label == "phishing"
-    assert result.score == pytest.approx(0.8)
+    # Should aggregate: safe = 0.7 + 0.15 = 0.85, phishing = 0.1 + 0.05 = 0.15
+    assert result.label == "safe"
+    assert result.score == pytest.approx(0.85)
     assert "safe" in result.scores_by_label
     assert "phishing" in result.scores_by_label
+    # Check all individual labels are preserved
+    assert "legitimate_email" in result.scores_by_label
+    assert "phishing_url" in result.scores_by_label
+    assert "legitimate_url" in result.scores_by_label
+    assert "phishing_url_alt" in result.scores_by_label
     assert "LABEL_0" not in result.scores_by_label
     assert "LABEL_1" not in result.scores_by_label
 
 
 @patch("llumdocs.services.email_intelligence_service._get_sentiment_pipeline")
 def test_analyze_sentiment_parses_prediction(mock_pipeline):
-    def fake_pipeline(text):
-        return [{"label": "positive", "score": 0.73}]
+    def fake_pipeline(text, **kwargs):
+        return [
+            [
+                {"label": "positive", "score": 0.73},
+                {"label": "neutral", "score": 0.20},
+                {"label": "negative", "score": 0.07},
+            ]
+        ]
 
     mock_pipeline.return_value = fake_pipeline
 
@@ -88,8 +133,12 @@ def test_analyze_sentiment_parses_prediction(mock_pipeline):
 
     assert result.label == "positive"
     assert result.score == pytest.approx(0.73)
+    assert result.scores_by_label["positive"] == pytest.approx(0.73)
+    assert result.scores_by_label["neutral"] == pytest.approx(0.20)
+    assert result.scores_by_label["negative"] == pytest.approx(0.07)
 
 
+@patch("llumdocs.services.email_intelligence_service._get_phishing_label_map")
 @patch("llumdocs.services.email_intelligence_service._get_sentiment_pipeline")
 @patch("llumdocs.services.email_intelligence_service._get_phishing_pipeline")
 @patch("llumdocs.services.email_intelligence_service._get_zero_shot_pipeline")
@@ -97,18 +146,39 @@ def test_email_intelligence_service_runs_all_pipelines(
     mock_zero_shot,
     mock_phishing,
     mock_sentiment,
+    mock_label_map,
 ):
     mock_zero_shot.return_value = lambda *args, **kwargs: {
         "labels": ["support"],
         "scores": [0.99],
     }
-    mock_phishing.return_value = lambda *args, **kwargs: [[{"label": "safe", "score": 0.7}]]
-    mock_sentiment.return_value = lambda *args, **kwargs: [{"label": "neutral", "score": 0.55}]
+    mock_phishing.return_value = lambda *args, **kwargs: [
+        [
+            {"label": "LABEL_0", "score": 0.7},  # legitimate_email
+            {"label": "LABEL_1", "score": 0.1},  # phishing_url
+            {"label": "LABEL_2", "score": 0.15},  # legitimate_url
+            {"label": "LABEL_3", "score": 0.05},  # phishing_url_alt
+        ]
+    ]
+    mock_label_map.return_value = {
+        "LABEL_0": "legitimate_email",
+        "LABEL_1": "phishing_url",
+        "LABEL_2": "legitimate_url",
+        "LABEL_3": "phishing_url_alt",
+    }
+    mock_sentiment.return_value = lambda *args, **kwargs: [
+        [
+            {"label": "neutral", "score": 0.55},
+            {"label": "positive", "score": 0.30},
+            {"label": "negative", "score": 0.15},
+        ]
+    ]
 
     service = EmailIntelligenceService(["support"])
     insights = service.analyze_email("Ping")
 
     assert insights.classification.labels == ["support"]
+    # safe = 0.7 + 0.15 = 0.85, phishing = 0.1 + 0.05 = 0.15
     assert insights.phishing.label == "safe"
     assert insights.sentiment.label == "neutral"
 

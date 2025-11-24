@@ -80,15 +80,18 @@ You can also use LiteLLM directly in your code:
 from litellm import completion
 
 # Ollama text model example
+# Note: keep_alive=0 unloads the model immediately after inference
 response = completion(
     model="ollama/llama3.1:8b",
     messages=[{"role": "user", "content": "Your message here"}],
-    api_base="http://localhost:11434"
+    api_base="http://localhost:11434",
+    keep_alive=0  # Unload model immediately after inference
 )
 print(response.choices[0].message.content)
 
 # Ollama vision model example (for image description)
 # Note: Vision models require image data in the messages
+# Note: keep_alive=0 unloads the model immediately after inference
 response = completion(
     model="ollama/qwen3-vl:8b",
     messages=[{
@@ -98,7 +101,8 @@ response = completion(
             {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
         ]
     }],
-    api_base="http://localhost:11434"
+    api_base="http://localhost:11434",
+    keep_alive=0  # Unload model immediately after inference
 )
 print(response.choices[0].message.content)
 

@@ -103,8 +103,11 @@ Key variables understood by `llumdocs.llm.resolve_model()`:
 - `LLUMDOCS_DEFAULT_VISION_MODEL` – model for image description tasks (see recommended models below).
 - `LLUMDOCS_DISABLE_OLLAMA=1` – opt-out of Ollama even if installed.
 - `OLLAMA_API_BASE` – change the Ollama host (default `http://localhost:11434`).
-- `LLUMDOCS_LLM_TIMEOUT_SECONDS` – timeout for LLM calls in seconds (default: 30.0).
+- `OLLAMA_KEEP_ALIVE` – server-side default keep_alive (informational only; client requests explicitly set `keep_alive=0` to unload models immediately after inference).
+- `LLUMDOCS_LLM_TIMEOUT_SECONDS` – timeout for text LLM calls in seconds (default: 30.0).
+- `LLUMDOCS_VISION_TIMEOUT_SECONDS` – timeout for vision/image models (default: 60.0, but falls back to `LLUMDOCS_LLM_TIMEOUT_SECONDS` when set).
 - `LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE` – set to `0` to disable email intelligence (default: `1`).
+- `LLUMDOCS_EMAIL_MAX_TOKENS` – max tokens per email fed to Hugging Face pipelines (default: 512).
 - `LLUMDOCS_MAX_IMAGE_SIZE_BYTES` – maximum image upload size in bytes (default: 10MB).
 - `HF_HOME` – Hugging Face cache directory (for email intelligence models).
 
@@ -123,7 +126,9 @@ LLUMDOCS_DEFAULT_MODEL=gpt-4o-mini
 LLUMDOCS_DEFAULT_VISION_MODEL=o4-mini
 OLLAMA_API_BASE=http://localhost:11434
 LLUMDOCS_LLM_TIMEOUT_SECONDS=30.0
+LLUMDOCS_VISION_TIMEOUT_SECONDS=60.0
 LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE=1
+LLUMDOCS_EMAIL_MAX_TOKENS=512
 HF_HOME=/models/hf
 ```
 
@@ -132,6 +137,8 @@ HF_HOME=/models/hf
 ## 4. Configure LiteLLM Providers
 
 ### Ollama
+
+**Model Unloading:** LlumDocs automatically sets `keep_alive=0` for all Ollama requests to unload models immediately after inference, freeing VRAM/RAM between calls. This is especially useful when running multiple models or when GPU memory is limited. The trade-off is higher first-token latency on subsequent calls due to model reload.
 
 1. Install:
    ```bash

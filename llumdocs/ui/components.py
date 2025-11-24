@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import gradio as gr
 
 from llumdocs.llm import LLMConfigurationError
@@ -13,7 +15,10 @@ from llumdocs.services import (
 )
 from llumdocs.services.image_description_service import ImageDescriptionError, describe_image
 from llumdocs.services.text_transform_service import (
+    CALM_PROFESSIONAL,
+    SERIOUS_IMPORTANT,
     TextTransformError,
+    apply_company_tone,
     extract_keywords,
     make_text_more_technical,
     simplify_text,
@@ -57,6 +62,17 @@ def create_error_display() -> gr.Markdown:
         A Markdown component configured for error display with consistent styling.
     """
     return gr.Markdown("", elem_id="error-display", elem_classes=["error-display"])
+
+
+def create_processing_status() -> gr.Markdown:
+    """Create a processing status message component.
+
+    Returns:
+        A Markdown component for displaying processing status with elapsed time.
+    """
+    return gr.Markdown(
+        "", elem_id="processing-status", elem_classes=["processing-status"], visible=True
+    )
 
 
 def create_model_dropdown(
@@ -138,6 +154,7 @@ def create_translation_panel(
             elem_id="target-language-dropdown",
         )
         translate_button = gr.Button("Translate", variant="primary")
+        translation_status = create_processing_status()
         translation_output = gr.Textbox(
             label="Translated text", lines=8, interactive=False, elem_id="translation-output"
         )
@@ -148,12 +165,13 @@ def create_translation_panel(
             source_label: str,
             target_label: str,
             model_label: str,
-        ) -> tuple[str, str]:
+        ) -> tuple[str, str, str]:
+            start_time = time.time()
             source_code = source_map[source_label]
             target_code = source_map[target_label]
             model_id, err = _resolve_model_id(model_label, model_map)
             if err:
-                return "", err
+                return "", "", ""
             try:
                 translated = translate_text(
                     text,
@@ -161,14 +179,18 @@ def create_translation_panel(
                     target_lang=target_code,
                     model_hint=model_id,
                 )
-                return translated, ""
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return translated, status_msg, ""
             except (TranslationError, LLMConfigurationError) as exc:
-                return "", format_error_message(exc)
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
 
         translate_button.click(
             fn=run_translation,
             inputs=[translate_textbox, source_dropdown, target_dropdown, model_dropdown],
-            outputs=[translation_output, translation_error],
+            outputs=[translation_output, translation_status, translation_error],
         )
 
     return translate_panel, translate_button
@@ -192,30 +214,56 @@ def create_summary_panel(
             choices=["short", "detailed", "executive"],
             value="short",
         )
+        gr.Markdown(
+            """
+            **Summary type explanations:**
+
+            - **Short**: 3-5 concise sentences (~50-100 words). We ask the model
+              to provide a brief, condensed overview of the main points.
+
+            - **Detailed**: A thorough summary with logical sections or bullet
+              points (~200-500+ words). We ask the model to provide a
+              comprehensive breakdown covering all major topics and details.
+
+            - **Executive**: A summary for decision-makers covering goals, key
+              points, risks, and recommendations (~150-300 words). We ask the
+              model to focus on actionable insights, strategic implications, and
+              what decision-makers need to know.
+            """,
+            elem_classes=["caption"],
+        )
         summary_button = gr.Button("Summarize", variant="primary")
+        summary_status = create_processing_status()
         summary_output = gr.Textbox(
             label="Summary", lines=8, interactive=False, elem_id="summary-output"
         )
         summary_error = create_error_display()
 
-        def run_summary(text: str, summary_type_value: str, model_label: str) -> tuple[str, str]:
+        def run_summary(
+            text: str, summary_type_value: str, model_label: str
+        ) -> tuple[str, str, str]:
+            start_time = time.time()
             model_id, err = _resolve_model_id(model_label, model_map)
             if err:
-                return "", err
+                return "", "", ""
             try:
                 result = summarize_document(
                     text,
                     summary_type=summary_type_value,  # type: ignore[arg-type]
                     model_hint=model_id,
                 )
-                return result, ""
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return result, status_msg, ""
             except TextTransformError as exc:
-                return "", format_error_message(exc)
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
 
         summary_button.click(
             fn=run_summary,
             inputs=[summary_textbox, summary_type, model_dropdown],
-            outputs=[summary_output, summary_error],
+            outputs=[summary_output, summary_status, summary_error],
         )
 
     return summary_panel, summary_button
@@ -242,29 +290,35 @@ def create_keywords_panel(
             value=10,
         )
         keyword_button = gr.Button("Extract keywords", variant="primary")
+        keyword_status = create_processing_status()
         keyword_output = gr.Textbox(
             label="Keywords (one per line)", lines=8, interactive=False, elem_id="keyword-output"
         )
         keyword_error = create_error_display()
 
-        def run_keywords(text: str, max_keywords: float, model_label: str) -> tuple[str, str]:
+        def run_keywords(text: str, max_keywords: float, model_label: str) -> tuple[str, str, str]:
+            start_time = time.time()
             model_id, err = _resolve_model_id(model_label, model_map)
             if err:
-                return "", err
+                return "", "", ""
             try:
                 keywords = extract_keywords(
                     text,
                     max_keywords=int(max_keywords),
                     model_hint=model_id,
                 )
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return "\n".join(keywords), status_msg, ""
             except TextTransformError as exc:
-                return "", format_error_message(exc)
-            return "\n".join(keywords), ""
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
 
         keyword_button.click(
             fn=run_keywords,
             inputs=[keyword_textbox, keyword_slider, model_dropdown],
-            outputs=[keyword_output, keyword_error],
+            outputs=[keyword_output, keyword_status, keyword_error],
         )
 
     return keyword_panel, keyword_button
@@ -296,6 +350,7 @@ def create_technical_panel(
             elem_id="expertise-level-dropdown",
         )
         technical_button = gr.Button("Make technical", variant="primary")
+        technical_status = create_processing_status()
         technical_output = gr.Textbox(
             label="Technical version", lines=8, interactive=False, elem_id="technical-output"
         )
@@ -306,10 +361,11 @@ def create_technical_panel(
             domain_value: str,
             level_value: str,
             model_label: str,
-        ) -> tuple[str, str]:
+        ) -> tuple[str, str, str]:
+            start_time = time.time()
             model_id, err = _resolve_model_id(model_label, model_map)
             if err:
-                return "", err
+                return "", "", ""
             domain_arg = domain_value or None
             level_arg = level_value or None
             try:
@@ -319,14 +375,18 @@ def create_technical_panel(
                     target_level=level_arg,
                     model_hint=model_id,
                 )
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return result, status_msg, ""
             except TextTransformError as exc:
-                return "", format_error_message(exc)
-            return result, ""
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
 
         technical_button.click(
             fn=run_technical,
             inputs=[technical_textbox, domain_dropdown, level_dropdown, model_dropdown],
-            outputs=[technical_output, technical_error],
+            outputs=[technical_output, technical_status, technical_error],
         )
 
     return technical_panel, technical_button
@@ -352,15 +412,17 @@ def create_plain_panel(
             elem_id="reading-level-dropdown",
         )
         plain_button = gr.Button("Simplify", variant="primary")
+        plain_status = create_processing_status()
         plain_output = gr.Textbox(
             label="Plain-language version", lines=8, interactive=False, elem_id="plain-output"
         )
         plain_error = create_error_display()
 
-        def run_plain(text: str, level_value: str, model_label: str) -> tuple[str, str]:
+        def run_plain(text: str, level_value: str, model_label: str) -> tuple[str, str, str]:
+            start_time = time.time()
             model_id, err = _resolve_model_id(model_label, model_map)
             if err:
-                return "", err
+                return "", "", ""
             target_level = level_value or None
             try:
                 result = simplify_text(
@@ -368,17 +430,283 @@ def create_plain_panel(
                     target_reading_level=target_level,
                     model_hint=model_id,
                 )
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return result, status_msg, ""
             except TextTransformError as exc:
-                return "", format_error_message(exc)
-            return result, ""
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
 
         plain_button.click(
             fn=run_plain,
             inputs=[plain_textbox, reading_level, model_dropdown],
-            outputs=[plain_output, plain_error],
+            outputs=[plain_output, plain_status, plain_error],
         )
 
     return plain_panel, plain_button
+
+
+def create_text_transformation_panel(
+    model_map: dict[str, str], model_choices: list[tuple[str, str]]
+) -> tuple[gr.Column, callable]:
+    """Create the unified text transformation panel with subcategories."""
+    with gr.Column(visible=False) as transform_panel:
+        gr.Markdown("Transform text with different styles and tones.")
+        model_dropdown = create_llm_dropdown(model_choices)
+
+        # Main transformation type selector
+        transform_type = gr.Radio(
+            label="Transformation type",
+            choices=[
+                "Make text more technical",
+                "Simplify text",
+                "Give text a tone aligned with the company",
+            ],
+            value="Make text more technical",
+            elem_id="transform-type-radio",
+        )
+
+        # Company tone subcategory (only visible when company tone is selected)
+        company_tone_type = gr.Dropdown(
+            label="Company tone style",
+            choices=[
+                "Company serious, important mail",
+                "Company with calm tone, professional but casual",
+            ],
+            value="Company serious, important mail",
+            visible=False,
+            elem_id="company-tone-dropdown",
+        )
+        # Language selector for company tone (only visible when company tone is selected)
+        company_tone_language = gr.Dropdown(
+            label="Email language",
+            choices=[
+                ("Catalan", "ca"),
+                ("Spanish", "es"),
+                ("English", "en"),
+            ],
+            value="en",
+            visible=False,
+            elem_id="company-tone-language-dropdown",
+        )
+        company_tone_note = gr.Markdown(
+            "*Note: Company tone transformation generates a complete email ready to send, "
+            "including subject, greeting, body, closing, and signature.*",
+            visible=False,
+            elem_id="company-tone-note",
+        )
+
+        # Text input
+        transform_textbox = gr.Textbox(
+            label="Text to transform",
+            placeholder="Paste or write your text here…",
+            lines=8,
+            elem_id="transform-textbox",
+        )
+        transform_textbox_language_note = gr.Markdown(
+            "",
+            visible=False,
+            elem_id="transform-textbox-language-note",
+        )
+
+        # Conditional fields for technical transformation
+        domain_dropdown = gr.Dropdown(
+            label="Domain (optional)",
+            choices=["", "tech", "medical", "legal", "finance"],
+            value="",
+            visible=True,  # Visible by default since "Make text more technical" is the default
+            elem_id="domain-dropdown",
+        )
+        level_dropdown = gr.Dropdown(
+            label="Target expertise level (optional)",
+            choices=["", "intermediate", "advanced", "expert"],
+            value="",
+            visible=True,  # Visible by default since "Make text more technical" is the default
+            elem_id="expertise-level-dropdown",
+        )
+
+        # Conditional field for simplify transformation
+        reading_level = gr.Dropdown(
+            label="Target reading level (optional)",
+            choices=["", "child", "teen", "adult_general"],
+            value="",
+            visible=False,
+            elem_id="reading-level-dropdown",
+        )
+
+        transform_button = gr.Button("Transform", variant="primary")
+        transform_status = create_processing_status()
+        transform_output = gr.Textbox(
+            label="Transformed text",
+            lines=12,
+            interactive=False,
+            elem_id="transform-output",
+            placeholder="The transformed text or complete email will appear here...",
+        )
+        transform_output_language = gr.Markdown(
+            "",
+            visible=True,
+            elem_id="transform-output-language",
+        )
+        transform_error = create_error_display()
+
+        def update_ui_visibility(
+            transform_type_value: str,
+        ) -> tuple[dict, dict, dict, dict, dict, dict, dict]:
+            """Update visibility of conditional fields based on transformation type."""
+            if transform_type_value == "Make text more technical":
+                return (
+                    gr.update(visible=False),  # company_tone_type
+                    gr.update(visible=False),  # company_tone_language
+                    gr.update(visible=False),  # company_tone_note
+                    gr.update(visible=False),  # transform_textbox_language_note
+                    gr.update(visible=True),  # domain_dropdown
+                    gr.update(visible=True),  # level_dropdown
+                    gr.update(visible=False),  # reading_level
+                )
+            elif transform_type_value == "Simplify text":
+                return (
+                    gr.update(visible=False),  # company_tone_type
+                    gr.update(visible=False),  # company_tone_language
+                    gr.update(visible=False),  # company_tone_note
+                    gr.update(visible=False),  # transform_textbox_language_note
+                    gr.update(visible=False),  # domain_dropdown
+                    gr.update(visible=False),  # level_dropdown
+                    gr.update(visible=True),  # reading_level
+                )
+            else:  # Company tone
+                return (
+                    gr.update(visible=True),  # company_tone_type
+                    gr.update(visible=True),  # company_tone_language
+                    gr.update(visible=True),  # company_tone_note
+                    gr.update(
+                        visible=True
+                    ),  # transform_textbox_language_note (will be updated by language change)
+                    gr.update(visible=False),  # domain_dropdown
+                    gr.update(visible=False),  # level_dropdown
+                    gr.update(visible=False),  # reading_level
+                )
+
+        def update_language_note(transform_type_value: str, selected_language: str) -> dict:
+            """Update the language note when language changes."""
+            if transform_type_value == "Give text a tone aligned with the company":
+                language_map = {"ca": "Catalan", "es": "Spanish", "en": "English"}
+                language_label = language_map.get(selected_language, "English")
+                return gr.update(visible=True, value=f"*Input text language: {language_label}*")
+            return gr.update(visible=False, value="")
+
+        transform_type.change(
+            fn=update_ui_visibility,
+            inputs=[transform_type],
+            outputs=[
+                company_tone_type,
+                company_tone_language,
+                company_tone_note,
+                transform_textbox_language_note,
+                domain_dropdown,
+                level_dropdown,
+                reading_level,
+            ],
+        ).then(
+            fn=update_language_note,
+            inputs=[transform_type, company_tone_language],
+            outputs=[transform_textbox_language_note],
+        )
+
+        company_tone_language.change(
+            fn=update_language_note,
+            inputs=[transform_type, company_tone_language],
+            outputs=[transform_textbox_language_note],
+        )
+
+        def run_transformation(
+            text: str,
+            transform_type_value: str,
+            company_tone_value: str,
+            company_tone_lang: str,
+            domain_value: str,
+            level_value: str,
+            reading_level_value: str,
+            model_label: str,
+        ) -> tuple[str, str, str, str]:
+            start_time = time.time()
+            model_id, err = _resolve_model_id(model_label, model_map)
+            if err:
+                return "", "", "", ""
+
+            language_note = ""
+
+            try:
+                if transform_type_value == "Make text more technical":
+                    domain_arg = domain_value or None
+                    level_arg = level_value or None
+                    result = make_text_more_technical(
+                        text,
+                        domain=domain_arg,
+                        target_level=level_arg,
+                        model_hint=model_id,
+                    )
+                    language_note = ""  # No language note for technical transformation
+                elif transform_type_value == "Simplify text":
+                    target_level = reading_level_value or None
+                    result = simplify_text(
+                        text,
+                        target_reading_level=target_level,
+                        model_hint=model_id,
+                    )
+                    language_note = ""  # No language note for simplify transformation
+                else:  # Company tone
+                    if company_tone_value == "Company serious, important mail":
+                        tone_type = SERIOUS_IMPORTANT
+                    else:  # "Company with calm tone, professional but casual"
+                        tone_type = CALM_PROFESSIONAL
+
+                    # Get language label
+                    language_map = {"ca": "Catalan", "es": "Spanish", "en": "English"}
+                    language_label = language_map.get(company_tone_lang, "English")
+                    language_note = f"**Email language:** {language_label}"
+
+                    result = apply_company_tone(
+                        text,
+                        tone_type=tone_type,
+                        language=company_tone_lang,  # type: ignore[arg-type]
+                        model_hint=model_id,
+                    )
+
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return result, status_msg, "", language_note
+            except TextTransformError as exc:
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc), ""
+            except Exception as exc:  # noqa: BLE001
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc), ""
+
+        transform_button.click(
+            fn=run_transformation,
+            inputs=[
+                transform_textbox,
+                transform_type,
+                company_tone_type,
+                company_tone_language,
+                domain_dropdown,
+                level_dropdown,
+                reading_level,
+                model_dropdown,
+            ],
+            outputs=[
+                transform_output,
+                transform_status,
+                transform_error,
+                transform_output_language,
+            ],
+        )
+
+    return transform_panel, transform_button
 
 
 def create_image_panel(
@@ -411,6 +739,7 @@ def create_image_panel(
             elem_id="image-max-size-dropdown",
         )
         image_button = gr.Button("Describe image", variant="primary")
+        image_status = create_processing_status()
         image_output = gr.Textbox(
             label="Description", lines=8, interactive=False, elem_id="image-output"
         )
@@ -421,14 +750,19 @@ def create_image_panel(
             detail_level: str,
             max_size_str: str,
             model_label: str,
-        ) -> tuple[str, str]:
+        ) -> tuple[str, str, str]:
+            start_time = time.time()
             if not image_path:
-                return "", format_error_message(
-                    ValueError("Please upload an image."), "Please upload an image."
+                return (
+                    "",
+                    "",
+                    format_error_message(
+                        ValueError("Please upload an image."), "Please upload an image."
+                    ),
                 )
             model_id, err = _resolve_model_id(model_label, vision_model_map)
             if err:
-                return "", err
+                return "", "", ""
             try:
                 max_size = int(max_size_str)
                 # Read image file as bytes
@@ -440,16 +774,22 @@ def create_image_panel(
                     max_size=max_size,
                     model_hint=model_id,
                 )
-                return result, ""
+                elapsed = time.time() - start_time
+                status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+                return result, status_msg, ""
             except ImageDescriptionError as exc:
-                return "", format_error_message(exc)
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
             except Exception as exc:  # noqa: BLE001
-                return "", format_error_message(exc)
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", status_msg, format_error_message(exc)
 
         image_button.click(
             fn=run_image_description,
             inputs=[image_upload, image_detail_level, image_max_size, vision_model_dropdown],
-            outputs=[image_output, image_error],
+            outputs=[image_output, image_status, image_error],
         )
 
     return image_panel, image_button
@@ -487,6 +827,7 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
             elem_id="email-template-textbox",
         )
         analyze_button = gr.Button("Analyze email", variant="primary")
+        email_status = create_processing_status()
         classification_output = gr.Markdown(label="Classification", elem_id="classification-output")
         phishing_output = gr.Markdown(label="Phishing detection", elem_id="phishing-output")
         sentiment_output = gr.Markdown(label="Sentiment analysis", elem_id="sentiment-output")
@@ -496,9 +837,13 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
             text: str,
             multi_label_enabled: bool,
             template_value: str,
-        ) -> tuple[str, str, str, str]:
+        ) -> tuple[str, str, str, str, str]:
+            start_time = time.time()
             if not EMAIL_INTEL_AVAILABLE or EmailIntelligenceService is None:
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
                 return (
+                    "",
                     "",
                     "",
                     "",
@@ -523,7 +868,9 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
                 )
                 insights = service.analyze_email(text)
             except EmailIntelligenceError as exc:
-                return "", "", "", format_error_message(exc)
+                elapsed = time.time() - start_time
+                status_msg = f"✗ Processing failed after {elapsed:.2f} seconds"
+                return "", "", "", status_msg, format_error_message(exc)
 
             # Format classification output - sorted by score (highest first)
             classification_items = list(
@@ -551,17 +898,19 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
                 classification_lines.append("No classifications found.")
             classification_text = "\n".join(classification_lines)
 
-            # Format phishing output - filter out zero scores and generic class labels
+            # Format phishing output
             phishing_label = insights.phishing.label
             phishing_score = insights.phishing.score
             phishing_percentage = phishing_score * 100
 
-            # Filter out zero scores and generic class_X labels for cleaner output
-            relevant_scores = {
-                label: score
-                for label, score in insights.phishing.scores_by_label.items()
-                if score > 0.0001 and not label.startswith("class_")
-            }
+            # Extract aggregated scores (safe/phishing) and individual label scores
+            aggregated_scores = {}
+            individual_scores = {}
+            for label, score in insights.phishing.scores_by_label.items():
+                if label in ("safe", "phishing"):
+                    aggregated_scores[label] = score
+                elif score > 0.0001 and not label.startswith("class_"):
+                    individual_scores[label] = score
 
             phishing_lines = [
                 "### 🛡️ Spam & Phishing Detection",
@@ -573,19 +922,50 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
                 "",
                 f"**Result:** {phishing_label} ({phishing_percentage:.2f}%)",
             ]
-            if len(relevant_scores) > 1:
-                phishing_lines.append("\n**All scores:**")
+
+            # Show aggregated scores if available
+            if aggregated_scores:
+                phishing_lines.append("\n**Category scores:**")
+                for label in ["safe", "phishing"]:
+                    if label in aggregated_scores:
+                        score = aggregated_scores[label]
+                        pct = score * 100
+                        phishing_lines.append(f"- {label}: {pct:.2f}% ({score:.4f})")
+
+            # Show all individual label scores (the 4 model categories)
+            if individual_scores:
+                phishing_lines.append("\n**Individual category scores:**")
+                phishing_lines.append(
+                    "*(Note: Category names reference training data structure and don't "
+                    "necessarily indicate URL detection)*"
+                )
+                # Show in a consistent order: legitimate_email, phishing_url,
+                # legitimate_url, phishing_url_alt
+                label_order = [
+                    "legitimate_email",
+                    "phishing_url",
+                    "legitimate_url",
+                    "phishing_url_alt",
+                ]
+                for label in label_order:
+                    if label in individual_scores:
+                        score = individual_scores[label]
+                        pct = score * 100
+                        # Make labels more readable
+                        readable_label = label.replace("_", " ").title()
+                        phishing_lines.append(f"- {readable_label}: {pct:.2f}% ({score:.4f})")
+                # Also show any other labels that might exist
                 for label, score in sorted(
-                    relevant_scores.items(), key=lambda x: x[1], reverse=True
+                    individual_scores.items(), key=lambda x: x[1], reverse=True
                 ):
-                    pct = score * 100
-                    phishing_lines.append(f"- {label}: {pct:.2f}% ({score:.4f})")
+                    if label not in label_order:
+                        pct = score * 100
+                        readable_label = label.replace("_", " ").title()
+                        phishing_lines.append(f"- {readable_label}: {pct:.2f}% ({score:.4f})")
+
             phishing_text = "\n".join(phishing_lines)
 
             # Format sentiment output
-            sentiment_label = insights.sentiment.label
-            sentiment_score = insights.sentiment.score
-            sentiment_percentage = sentiment_score * 100
             sentiment_lines = [
                 "### 😊 Sentiment Analysis",
                 "",
@@ -594,19 +974,43 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
                     "classifying it as positive, neutral, or negative."
                 ),
                 "",
-                (
-                    f"**{sentiment_label.capitalize()}** "
-                    f"({sentiment_percentage:.2f}%, confidence: {sentiment_score:.4f})"
-                ),
             ]
+
+            # Show all sentiment categories with their scores
+            if insights.sentiment.scores_by_label:
+                # Sort by score descending
+                sorted_scores = sorted(
+                    insights.sentiment.scores_by_label.items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+                for label, score in sorted_scores:
+                    percentage = score * 100
+                    sentiment_lines.append(f"- **{label.capitalize()}**: {percentage:.2f}%")
+            else:
+                # Fallback to old format if scores_by_label is not available
+                sentiment_label = insights.sentiment.label
+                sentiment_percentage = insights.sentiment.score * 100
+                sentiment_lines.append(
+                    f"**{sentiment_label.capitalize()}** ({sentiment_percentage:.2f}%)"
+                )
+
             sentiment_text = "\n".join(sentiment_lines)
 
-            return classification_text, phishing_text, sentiment_text, ""
+            elapsed = time.time() - start_time
+            status_msg = f"✓ Processing completed in {elapsed:.2f} seconds"
+            return classification_text, phishing_text, sentiment_text, status_msg, ""
 
         analyze_button.click(
             fn=run_email_analysis,
             inputs=[message_text, allow_multi, template_text],
-            outputs=[classification_output, phishing_output, sentiment_output, email_error],
+            outputs=[
+                classification_output,
+                phishing_output,
+                sentiment_output,
+                email_status,
+                email_error,
+            ],
         )
 
     return email_panel, analyze_button

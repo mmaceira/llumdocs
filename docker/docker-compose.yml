@@ -123,8 +123,9 @@ services:
       # If host Ollama is not running, you can change this back to 11434:11434
       - "11435:11434"
     environment:
-      # Keep models warmed longer; tweak as needed
-      OLLAMA_KEEP_ALIVE: 24h
+      # Server-side default keep_alive (client requests still force keep_alive=0)
+      # This is informational; client requests explicitly set keep_alive=0
+      OLLAMA_KEEP_ALIVE: 0
       # GPU support: enable when using --profile gpu or --profile hf-bundled
       # For GPU support, install NVIDIA Container Toolkit first
       NVIDIA_VISIBLE_DEVICES: "all"

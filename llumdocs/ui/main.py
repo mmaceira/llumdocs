@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
-import gradio as gr
+import os
 
-from llumdocs.llm import available_models, available_vision_models
-from llumdocs.ui.components import (
+import gradio as gr
+from dotenv import load_dotenv
+
+# Load environment variables from .env file (if present)
+# This makes development usage consistent with Docker, where env_file is used
+load_dotenv()
+
+from llumdocs.llm import available_models, available_vision_models  # noqa: E402
+from llumdocs.ui.components import (  # noqa: E402
     LANGUAGE_OPTIONS,
     create_email_intelligence_panel,
     create_image_panel,
     create_keywords_panel,
-    create_plain_panel,
     create_summary_panel,
-    create_technical_panel,
+    create_text_transformation_panel,
     create_translation_panel,
 )
-from llumdocs.ui.layout import (
+from llumdocs.ui.layout import (  # noqa: E402
     FEATURE_BUTTON_CSS,
     FEATURES,
     create_panel_switcher,
@@ -123,13 +129,9 @@ def create_interface() -> gr.Blocks:
                 keyword_panel, _ = create_keywords_panel(model_map, model_choices)
                 panel_map["Keyword extraction"] = keyword_panel
 
-                # Technical panel
-                technical_panel, _ = create_technical_panel(model_map, model_choices)
-                panel_map["Make text more technical"] = technical_panel
-
-                # Plain language panel
-                plain_panel, _ = create_plain_panel(model_map, model_choices)
-                panel_map["Simplify text (plain language)"] = plain_panel
+                # Text transformation panel (unified)
+                transform_panel, _ = create_text_transformation_panel(model_map, model_choices)
+                panel_map["Text transformation"] = transform_panel
 
                 # Image description panel
                 image_panel, _ = create_image_panel(vision_model_map, vision_model_choices)
@@ -152,12 +154,95 @@ def create_interface() -> gr.Blocks:
                     outputs=panel_outputs + button_outputs,
                 )
 
+        # Add JavaScript to show "Processing..." with live timer for all buttons
+        gr.HTML(
+            value="""
+            <script>
+            (function() {
+                function setupProcessingTimers() {
+                    // Find all processing status elements
+                    document.querySelectorAll('.processing-status').forEach(function(statusEl) {
+                        // Skip if already set up
+                        if (statusEl.dataset.timerSetup === 'true') return;
+                        statusEl.dataset.timerSetup = 'true';
+
+                        // Find the associated button (look in parent container)
+                        const container = statusEl.closest('.gradio-column, .gradio-row, form');
+                        if (!container) return;
+
+                        const button = container.querySelector(
+                            'button[class*="primary"], button.variant-primary'
+                        );
+                        if (!button) return;
+
+                        let startTime = null;
+                        let timerInterval = null;
+
+                        button.addEventListener('click', function() {
+                            startTime = Date.now();
+                            statusEl.style.display = 'block';
+                            statusEl.innerHTML = '⏳ Processing...';
+
+                            // Update timer every 100ms
+                            timerInterval = setInterval(function() {
+                                if (startTime) {
+                                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                                    statusEl.innerHTML = `⏳ Processing... (${elapsed}s)`;
+                                }
+                            }, 100);
+                        });
+
+                        // Watch for when status message is updated (processing complete)
+                        const observer = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (
+                                    mutation.type === 'childList' ||
+                                    mutation.type === 'characterData'
+                                ) {
+                                    const text = statusEl.textContent || statusEl.innerText || '';
+                                    if (text.includes('✓') || text.includes('✗')) {
+                                        // Processing complete, stop timer
+                                        if (timerInterval) {
+                                            clearInterval(timerInterval);
+                                            timerInterval = null;
+                                        }
+                                        startTime = null;
+                                    }
+                                }
+                            });
+                        });
+
+                        observer.observe(statusEl, {
+                            childList: true,
+                            characterData: true,
+                            subtree: true
+                        });
+                    });
+                }
+
+                // Run on page load
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', setupProcessingTimers);
+                } else {
+                    setupProcessingTimers();
+                }
+
+                // Also run after Gradio updates the DOM
+                const bodyObserver = new MutationObserver(function() {
+                    setTimeout(setupProcessingTimers, 100);
+                });
+                bodyObserver.observe(document.body, { childList: true, subtree: true });
+            })();
+            </script>
+            """,
+            visible=False,
+        )
+
     return demo
 
 
 def main() -> None:
     """CLI entrypoint for running the LlumDocs Gradio UI."""
-    import os
 
     demo = create_interface()
     share = os.getenv("LLUMDOCS_UI_SHARE", "false").lower() in ("true", "1", "yes")

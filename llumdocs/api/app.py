@@ -5,12 +5,17 @@ from __future__ import annotations
 import os
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from llumdocs.api.image_endpoints import router as image_router
-from llumdocs.api.text_tools_endpoints import router as text_tools_router
-from llumdocs.api.translation_endpoints import router as translation_router
+# Load environment variables from .env file (if present)
+# This makes development usage consistent with Docker, where env_file is used
+load_dotenv()
+
+from llumdocs.api.image_endpoints import router as image_router  # noqa: E402
+from llumdocs.api.text_tools_endpoints import router as text_tools_router  # noqa: E402
+from llumdocs.api.translation_endpoints import router as translation_router  # noqa: E402
 
 
 def create_app() -> FastAPI:
