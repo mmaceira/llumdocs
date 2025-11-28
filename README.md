@@ -29,9 +29,11 @@ uv run uvicorn llumdocs.api.app:app --reload
 | Text translation (ca/es/en + autodetect) | `llumdocs/services/translation_service.py` | `POST /api/translate`, Gradio **Translate** tab |
 | Plain-language rewrite | `llumdocs/services/text_transform_service/simplify.py` | `POST /api/text/plain`, Gradio **Plain language** tab |
 | Technical rewrite | `llumdocs/services/text_transform_service/technical.py` | `POST /api/text/technical`, Gradio **Technical tone** tab |
+| Company tone rewrite | `llumdocs/services/text_transform_service/company_tone.py` | Gradio **Text transformation** tab (company tone option) |
 | Document summarization (short/executive) | `llumdocs/services/text_transform_service/summary.py` | `POST /api/documents/summarize`, Gradio **Summaries** tab |
 | Keyword extraction | `llumdocs/services/text_transform_service/keywords.py` | `POST /api/text/keywords`, Gradio **Keywords** tab |
 | Image description (caption + detail) | `llumdocs/services/image_description_service.py` | `POST /api/images/describe`, Gradio **Image description** tab |
+| Document extraction (delivery notes, bank statements, payroll) | `llumdocs/services/document_extraction_service.py` | `POST /api/documents/extract`, Gradio **Document extraction** tab |
 | Email intelligence (routing, phishing, sentiment) | `llumdocs/services/email_intelligence_service.py` – HuggingFace zero-shot + phishing + multilingual sentiment | Gradio **Email intelligence** tab (API route planned) |
 
 All endpoints are registered in `llumdocs/api/app.py`, and the Gradio UI lives in `llumdocs/ui/main.py`.
@@ -41,8 +43,8 @@ All endpoints are registered in `llumdocs/api/app.py`, and the Gradio UI lives i
 ## Ways to Use LlumDocs
 
 - **Docker** – Use Docker Compose for easy deployment with all services (API, UI, Ollama). See `docker/README.md` for detailed setup instructions including CPU/GPU profiles and model management.
-- **Gradio UI** – Launch `python -m llumdocs.ui.main` to get a multi-tab interface that exposes each utility with minimal inputs. Great for demos and non-technical teammates.
-- **REST API** – Run `uv run uvicorn llumdocs.api.app:app --reload` (or `uvicorn llumdocs.api.app:app`) and call endpoints such as `POST /api/translate` or `POST /api/text/keywords`. Responses are JSON-friendly for ERP/RPA integration.
+- **Gradio UI** – Launch `uv run llumdocs-ui` (or `python -m llumdocs.ui.main`) to get a multi-tab interface that exposes each utility with minimal inputs. Great for demos and non-technical teammates.
+- **REST API** – Run `uv run llumdocs-api` (or `uv run uvicorn llumdocs.api.app:app --reload`) and call endpoints such as `POST /api/translate` or `POST /api/text/keywords`. Responses are JSON-friendly for ERP/RPA integration.
 - **Python services** – Import the services directly (`from llumdocs.services.translation_service import translate_text`) to embed transformations inside automations or background jobs.
 
 ### Interactive API Documentation (Swagger UI)

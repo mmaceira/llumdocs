@@ -70,7 +70,7 @@ def create_interface() -> gr.Blocks:
         features_with_availability[0]["label"],
     )
 
-    with gr.Blocks(title="LlumDocs", theme=gr.themes.Soft(), css=FEATURE_BUTTON_CSS) as demo:
+    with gr.Blocks(title="LlumDocs", css=FEATURE_BUTTON_CSS) as demo:
         gr.Markdown(
             """
             # 🌟 LlumDocs
@@ -84,14 +84,14 @@ def create_interface() -> gr.Blocks:
             models and local Ollama models without changing your code.
 
             **Available capabilities:**
-            - **Document extraction**: Extract structured data from delivery notes, bank
-              statements, and payroll documents with OCR
             - **Translation**: Translate between Catalan, Spanish, and English with auto-detection
             - **Text transformation**: Rewrite text in technical, simplified, or company tone
             - **Summarization**: Generate short, detailed, or executive summaries
             - **Keyword extraction**: Extract top key concepts and phrases
             - **Image description**: Generate captions and detailed descriptions of images
             - **Email intelligence**: Route emails, detect phishing, and analyze sentiment
+            - **Document extraction**: Extract structured data from delivery notes, bank
+              statements, and payroll documents with OCR
             """
         )
 

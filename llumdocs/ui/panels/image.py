@@ -29,6 +29,12 @@ def create_image_panel(
             choices=["short", "detailed"],
             value="short",
         )
+        max_size = gr.Dropdown(
+            label="Max size (longest axis)",
+            choices=[128, 256, 512, 1024, 2048],
+            value=512,
+            info="Maximum size for the longest side in pixels",
+        )
         image_button = gr.Button("Describe image", variant="primary")
         image_status = create_processing_status()
         image_output = gr.Textbox(
@@ -37,7 +43,7 @@ def create_image_panel(
         image_error = create_error_display()
 
         def run_image_description(
-            image, detail_level_value: str, vision_model_label: str
+            image, detail_level_value: str, max_size_value: int, vision_model_label: str
         ) -> tuple[str, str, str]:
             start_time = time.time()
             if image is None:
@@ -54,6 +60,7 @@ def create_image_panel(
                 result = describe_image(
                     img_bytes,
                     detail_level=detail_level_value,
+                    max_size=int(max_size_value),
                     model_hint=vision_model_id,  # type: ignore[arg-type]
                 )
                 elapsed = time.time() - start_time
@@ -66,7 +73,7 @@ def create_image_panel(
 
         image_button.click(
             fn=run_image_description,
-            inputs=[image_input, detail_level, vision_model_dropdown],
+            inputs=[image_input, detail_level, max_size, vision_model_dropdown],
             outputs=[image_output, image_status, image_error],
         )
 

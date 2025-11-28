@@ -96,20 +96,12 @@ Copy the template, then edit values as needed:
 cp .env.template .env
 ```
 
-Key variables understood by `llumdocs.llm.resolve_model()`:
-
-- `OPENAI_API_KEY` – enables OpenAI routing through LiteLLM.
-- `LLUMDOCS_DEFAULT_MODEL` – preferred text model (see recommended models below).
-- `LLUMDOCS_DEFAULT_VISION_MODEL` – model for image description tasks (see recommended models below).
-- `LLUMDOCS_DISABLE_OLLAMA=1` – opt-out of Ollama even if installed.
-- `OLLAMA_API_BASE` – change the Ollama host (default `http://localhost:11434`).
-- `OLLAMA_KEEP_ALIVE` – server-side default keep_alive (informational only; client requests explicitly set `keep_alive=0` to unload models immediately after inference).
-- `LLUMDOCS_LLM_TIMEOUT_SECONDS` – timeout for text LLM calls in seconds (default: 30.0).
-- `LLUMDOCS_VISION_TIMEOUT_SECONDS` – timeout for vision/image models (default: 60.0, but falls back to `LLUMDOCS_LLM_TIMEOUT_SECONDS` when set).
-- `LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE` – set to `0` to disable email intelligence (default: `1`).
-- `LLUMDOCS_EMAIL_MAX_TOKENS` – max tokens per email fed to Hugging Face pipelines (default: 512).
-- `LLUMDOCS_MAX_IMAGE_SIZE_BYTES` – maximum image upload size in bytes (default: 10MB).
-- `HF_HOME` – Hugging Face cache directory (for email intelligence models).
+Environment variables are defined in the codebase. See:
+- `llumdocs/llm.py` – LLM configuration (models, timeouts, Ollama settings)
+- `llumdocs/api/app.py` – API configuration (host, port, CORS)
+- `llumdocs/ui/main.py` – UI configuration (host, port, sharing)
+- `llumdocs/services/email_intelligence_service.py` – Email intelligence settings
+- `llumdocs/api/image_endpoints.py` – Image upload limits
 
 **Recommended models:**
 
@@ -118,18 +110,12 @@ Key variables understood by `llumdocs.llm.resolve_model()`:
 | Text tools   | `gpt-4o-mini` or `ollama/llama3.1:8b` |
 | Vision tools | `o4-mini` or `ollama/qwen3-vl:8b` |
 
-Example:
+**Minimal `.env` example:**
 
 ```ini
 OPENAI_API_KEY=sk-your-key
 LLUMDOCS_DEFAULT_MODEL=gpt-4o-mini
 LLUMDOCS_DEFAULT_VISION_MODEL=o4-mini
-OLLAMA_API_BASE=http://localhost:11434
-LLUMDOCS_LLM_TIMEOUT_SECONDS=30.0
-LLUMDOCS_VISION_TIMEOUT_SECONDS=60.0
-LLUMDOCS_ENABLE_EMAIL_INTELLIGENCE=1
-LLUMDOCS_EMAIL_MAX_TOKENS=512
-HF_HOME=/models/hf
 ```
 
 ---

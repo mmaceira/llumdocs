@@ -48,6 +48,18 @@ Each section below describes what a capability does, how users interact with it,
 
 ---
 
+## 3b. Company Tone Rewrite — ✅
+
+- **Goal:** Generate complete, professional emails with company-aligned tone (serious/important or calm/professional).
+- **Inputs:** `text`, `tone_type` (`"serious_important"` or `"calm_professional"`), `language` (`"ca"`, `"es"`, `"en"`).
+- **Outputs:** `email_text` (complete email with subject, greeting, body, closing, signature).
+- **Service:** `llumdocs.services.text_transform_service.apply_company_tone(...)`.
+- **Prompt notes:** generates full email structure, preserves original meaning, uses appropriate language conventions.
+- **API:** Not exposed (UI-only feature).
+- **UI:** Gradio **Text transformation** tab with company tone option, tone type selector, and language dropdown.
+
+---
+
 ## 4. Document Summaries — ✅
 
 - **Goal:** Produce short, detailed, or executive summaries for pasted text or uploaded files (after OCR).
@@ -109,49 +121,15 @@ Each section below describes what a capability does, how users interact with it,
 
 ---
 
-## 8. Invoice / Structured Extraction — 🚧
+## 8. Document Extraction — ✅
 
-- **Goal:** Convert PDFs or OCR text into validated JSON invoices.
-- **Inputs:** file or `text`, optional `schema_name`.
-- **Outputs:** `data` (Pydantic model), optional `raw_text`.
-- **Service responsibilities:** perform OCR when needed, normalize text, call LiteLLM with strict schema instructions, validate JSON, surface errors clearly.
-- **API:** `POST /api/invoices/extract` (multipart or JSON).
-- **UI:** File upload, optional schema dropdown, show JSON + key fields.
-
----
-
-## 9. Classification & Sorting — 🚧
-
-- **Goal:** Assign documents to categories and optionally rank them by confidence.
-- **Inputs:** `documents` or document ids, `labels`, optional metadata filters.
-- **Outputs:** list of `{document_id, category, confidence}`.
-- **Service:** `classification_service.classify_documents(...)` returning dataclasses or Pydantic models.
-- **Approach:** hybrid of prompt-based classification or embeddings + nearest neighbour, configurable via params.
-- **API:** `POST /api/documents/classify`.
-- **UI:** multi-text input or upload list, label entry box, results table.
-
----
-
-## 10. Repository Manager — 🚧
-
-- **Goal:** Persist processed documents with metadata for later search/audits.
-- **Core operations:**
-  - `save_document(content, metadata) -> document_id`
-  - `get_document(document_id)`
-  - `list_documents(filters)`
-- **Storage:** initial implementation can rely on SQLite + blob/text storage; keep interface abstract for future S3/Vector DB swaps.
-- **UI/API:** Expose via management endpoints once MVP search is ready.
-
----
-
-## 11. Search (Keyword / Semantic / Hybrid) — 🚧
-
-- **Goal:** Query saved documents with different retrieval modes.
-- **Inputs:** `query_text`, `mode`, optional `filters`.
-- **Outputs:** ordered list of `{document_id, title/snippet, score, metadata}`.
-- **Service:** `search_service.search_documents(...)` orchestrating TF-IDF and embedding similarity (LiteLLM for embeddings).
-- **API:** `POST /api/search`.
-- **UI:** Search box, mode dropdown, optional filters, list results with highlight.
+- **Goal:** Extract structured data from PDFs or images (delivery notes, bank statements, payroll documents) with OCR.
+- **Inputs:** `file` (PDF or image), `doc_type` (`"deliverynote"`, `"bank"`, or `"payroll"`), optional `model`, optional `ocr_engine` (`"rapidocr"`, `"tesseract"`, `"docling"`).
+- **Outputs:** `extracted_data` (dict), `annotated_pdf` (base64-encoded PDF with OCR bounding boxes).
+- **Service:** `llumdocs.services.document_extraction_service.extract_document_data(...)`.
+- **Prompt notes:** Only OpenAI models are supported (Ollama models are rejected). OCR engines extract text and bounding boxes, then LLM extracts structured data per document type schema.
+- **API:** `POST /api/documents/extract` (multipart: `file`, `doc_type`, optional `model`, optional `ocr_engine`).
+- **UI:** Gradio tab with file upload, document type dropdown, OCR engine selector, and result display with annotated PDF download.
 
 ---
 
