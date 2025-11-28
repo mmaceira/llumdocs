@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from llumdocs.api.error_handling import handle_service_error
 from llumdocs.services.translation_service import TranslationError, translate_text
@@ -44,8 +44,8 @@ class TranslationRequest(BaseModel):
         examples=[None, "gpt-4o-mini", "ollama/llama3.1:8b"],
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "text": "Hello, how are you?",
                 "source_lang": "auto",
@@ -53,6 +53,7 @@ class TranslationRequest(BaseModel):
                 "model": None,
             }
         }
+    )
 
 
 class TranslationResponse(BaseModel):

@@ -13,11 +13,17 @@ dependencies = [
   "typer",
   "fastapi",
   "uvicorn[standard]",
-  "pydantic",
+  "pydantic>=2.8.0",
+  "pydantic-settings>=2.0.0",
   "python-dotenv",
   "httpx",
   "numpy",
   "Pillow",
+  "docling",
+  "PyMuPDF",
+  "pdf2image",
+  "pytesseract",
+  "rapidocr-onnxruntime",
 ]
 
 [project.scripts]
@@ -64,4 +70,8 @@ combine-as-imports = true
 [tool.pytest.ini_options]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+filterwarnings = [
+    "ignore::UserWarning:pydantic.main",
+    "ignore::DeprecationWarning:litellm._service_logger",
 ]

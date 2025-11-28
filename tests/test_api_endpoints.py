@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from llumdocs.api.app import create_app
+from llumdocs.services.document_extraction_service import DocumentExtractionError
 from llumdocs.services.image_description_service import ImageDescriptionError
 from llumdocs.services.text_transform_service import TextTransformError
 from llumdocs.services.translation_service import TranslationError
@@ -254,3 +255,87 @@ def test_image_description_endpoint_calls_full_stack(monkeypatch, client):
     assert response.status_code == 200
     assert response.json() == {"description": "Mock description from fake vision model"}
     assert calls["vision"] == 1
+
+
+def test_document_extraction_endpoint_success_deliverynote(monkeypatch, client):
+    """Test successful document extraction for deliverynote type."""
+    monkeypatch.setattr(
+        "llumdocs.api.document_extraction_endpoints.extract_document_data",
+        lambda *_, **__: ({"numero_albaran": "123", "fecha_albaran": "2024-01-01"}, b"pdf_bytes"),
+    )
+
+    response = client.post(
+        "/api/documents/extract",
+        files={"file": ("test.pdf", b"fake pdf content", "application/pdf")},
+        data={"doc_type": "deliverynote", "model": ""},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["extracted_data"] == {
+        "numero_albaran": "123",
+        "fecha_albaran": "2024-01-01",
+    }
+
+
+def test_document_extraction_endpoint_success_bank(monkeypatch, client):
+    """Test successful document extraction for bank type."""
+    monkeypatch.setattr(
+        "llumdocs.api.document_extraction_endpoints.extract_document_data",
+        lambda *_, **__: ({"banco": "Test Bank", "iban": "ES123456789"}, b"pdf_bytes"),
+    )
+
+    response = client.post(
+        "/api/documents/extract",
+        files={"file": ("test.pdf", b"fake pdf content", "application/pdf")},
+        data={"doc_type": "bank", "model": ""},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["extracted_data"] == {"banco": "Test Bank", "iban": "ES123456789"}
+
+
+def test_document_extraction_endpoint_success_payroll(monkeypatch, client):
+    """Test successful document extraction for payroll type."""
+    monkeypatch.setattr(
+        "llumdocs.api.document_extraction_endpoints.extract_document_data",
+        lambda *_, **__: ({"empresa_nif": "12345678A", "periodo": "2024-01"}, b"pdf_bytes"),
+    )
+
+    response = client.post(
+        "/api/documents/extract",
+        files={"file": ("test.pdf", b"fake pdf content", "application/pdf")},
+        data={"doc_type": "payroll", "model": ""},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["extracted_data"] == {"empresa_nif": "12345678A", "periodo": "2024-01"}
+
+
+def test_document_extraction_endpoint_invalid_doc_type(client):
+    """Test that invalid doc_type returns validation error."""
+    response = client.post(
+        "/api/documents/extract",
+        json={"doc_type": "invalid", "text": "Some text", "model": None},
+    )
+
+    assert response.status_code == 422  # Validation error
+
+
+def test_document_extraction_endpoint_error(monkeypatch, client):
+    """Test that service errors are handled correctly."""
+
+    def fake_extract(*_, **__):
+        raise DocumentExtractionError("Unknown doc_type: invalid")
+
+    monkeypatch.setattr(
+        "llumdocs.api.document_extraction_endpoints.extract_document_data", fake_extract
+    )
+
+    response = client.post(
+        "/api/documents/extract",
+        files={"file": ("test.pdf", b"fake pdf content", "application/pdf")},
+        data={"doc_type": "deliverynote", "model": ""},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown doc_type: invalid"

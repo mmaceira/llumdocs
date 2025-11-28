@@ -14,6 +14,7 @@ load_dotenv()
 from llumdocs.llm import available_models, available_vision_models  # noqa: E402
 from llumdocs.ui.components import (  # noqa: E402
     LANGUAGE_OPTIONS,
+    create_document_extraction_panel,
     create_email_intelligence_panel,
     create_image_panel,
     create_keywords_panel,
@@ -73,9 +74,24 @@ def create_interface() -> gr.Blocks:
         gr.Markdown(
             """
             # 🌟 LlumDocs
-            Smart document transformations powered by LLMs.
-            Available today: translation, summaries, keyword extraction, rewrites,
-            and email intelligence.
+
+            **Transform documents, text, and images into structured knowledge with LLMs.**
+
+            LlumDocs is a comprehensive toolkit that processes raw documents through OCR,
+            extracts structured data, translates content, generates summaries, and analyzes text
+            using Large Language Models. Built with FastAPI and Gradio, it provides both REST API
+            and web UI interfaces, and uses LiteLLM to seamlessly switch between OpenAI cloud
+            models and local Ollama models without changing your code.
+
+            **Available capabilities:**
+            - **Document extraction**: Extract structured data from delivery notes, bank
+              statements, and payroll documents with OCR
+            - **Translation**: Translate between Catalan, Spanish, and English with auto-detection
+            - **Text transformation**: Rewrite text in technical, simplified, or company tone
+            - **Summarization**: Generate short, detailed, or executive summaries
+            - **Keyword extraction**: Extract top key concepts and phrases
+            - **Image description**: Generate captions and detailed descriptions of images
+            - **Email intelligence**: Route emails, detect phishing, and analyze sentiment
             """
         )
 
@@ -140,6 +156,10 @@ def create_interface() -> gr.Blocks:
                 # Email intelligence panel
                 email_panel, _ = create_email_intelligence_panel()
                 panel_map["Email intelligence"] = email_panel
+
+                # Document extraction panel
+                extraction_panel, _ = create_document_extraction_panel(model_map, model_choices)
+                panel_map["Document extraction"] = extraction_panel
 
         # Wire up panel switching
         switch_panel, panel_outputs, button_outputs, clickable_buttons = create_panel_switcher(

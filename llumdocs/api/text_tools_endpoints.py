@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from llumdocs.api.error_handling import handle_service_error
 from llumdocs.services.text_transform_service import (
@@ -39,14 +39,15 @@ class KeywordsRequest(BaseModel):
         examples=[None, "gpt-4o-mini", "ollama/llama3.1:8b"],
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "text": "Machine learning is a subset of artificial intelligence",
                 "max_keywords": 10,
                 "model": None,
             }
         }
+    )
 
 
 class KeywordsResponse(BaseModel):
@@ -71,14 +72,15 @@ class SummaryRequest(BaseModel):
         examples=[None, "gpt-4o-mini"],
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "text": "Your long document text here...",
                 "summary_type": "short",
                 "model": None,
             }
         }
+    )
 
 
 class SummaryResponse(BaseModel):
@@ -107,8 +109,8 @@ class TechnicalRequest(BaseModel):
         examples=[None, "gpt-4o-mini"],
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "text": "Make this more technical",
                 "domain": None,
@@ -116,6 +118,7 @@ class TechnicalRequest(BaseModel):
                 "model": None,
             }
         }
+    )
 
 
 class TechnicalResponse(BaseModel):
@@ -142,14 +145,15 @@ class PlainLanguageRequest(BaseModel):
         examples=[None, "gpt-4o-mini"],
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "text": "Complex technical jargon here",
                 "target_reading_level": None,
                 "model": None,
             }
         }
+    )
 
 
 class PlainLanguageResponse(BaseModel):

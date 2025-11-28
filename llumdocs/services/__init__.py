@@ -29,6 +29,10 @@ except ImportError:
     classify_email = None  # type: ignore[assignment, misc]
     detect_phishing = None  # type: ignore[assignment, misc]
 
+from .document_extraction_service import (
+    DocumentExtractionError,
+    extract_document_data,
+)
 from .text_transform_service import (
     SummaryType,
     TextTransformError,
@@ -48,6 +52,8 @@ __all__ = [
     "make_text_more_technical",
     "simplify_text",
     "summarize_document",
+    "DocumentExtractionError",
+    "extract_document_data",
     "EMAIL_INTEL_AVAILABLE",
     "DEFAULT_EMAIL_ROUTING_LABELS",
     "EmailIntelligenceError",

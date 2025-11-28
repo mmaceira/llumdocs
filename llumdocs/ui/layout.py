@@ -23,8 +23,11 @@ FEATURES = [
         "available": True,
         "description": "Route + phishing + sentiment",
     },
-    {"label": "Invoice data extraction", "available": False, "description": "Coming soon"},
-    {"label": "Document classification", "available": False, "description": "Coming soon"},
+    {
+        "label": "Document extraction",
+        "available": True,
+        "description": "Delivery note, bank, payroll",
+    },
 ]
 
 

@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 # This makes development usage consistent with Docker, where env_file is used
 load_dotenv()
 
+from llumdocs.api.document_extraction_endpoints import (  # noqa: E402
+    router as document_extraction_router,
+)
 from llumdocs.api.image_endpoints import router as image_router  # noqa: E402
 from llumdocs.api.text_tools_endpoints import router as text_tools_router  # noqa: E402
 from llumdocs.api.translation_endpoints import router as translation_router  # noqa: E402
@@ -33,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(translation_router)
     app.include_router(text_tools_router)
     app.include_router(image_router)
+    app.include_router(document_extraction_router)
 
     @app.get("/health", summary="Simple healthcheck")
     async def health():

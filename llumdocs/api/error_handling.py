@@ -12,6 +12,7 @@ from __future__ import annotations
 from fastapi import HTTPException, status
 
 from llumdocs.llm import LLMConfigurationError
+from llumdocs.services.document_extraction_service import DocumentExtractionError
 from llumdocs.services.image_description_service import ImageDescriptionError
 from llumdocs.services.text_transform_service import TextTransformError
 from llumdocs.services.translation_service import TranslationError
@@ -69,9 +70,12 @@ def handle_service_error(exc: Exception, default_message: str = "Service error")
     if is_configuration_error(exc):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
-    # Service errors (TextTransformError, TranslationError, ImageDescriptionError)
+    # Service errors (TextTransformError, TranslationError, ImageDescriptionError,
+    # DocumentExtractionError)
     # should return 400 for validation errors, 500 for backend errors
-    if isinstance(exc, (TextTransformError, TranslationError, ImageDescriptionError)):
+    if isinstance(
+        exc, (TextTransformError, TranslationError, ImageDescriptionError, DocumentExtractionError)
+    ):
         # If it wraps a backend error (non-config), it's a 500
         if has_backend_error_cause(exc):
             return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=message)
