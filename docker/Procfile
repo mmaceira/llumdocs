@@ -1,0 +1,2 @@
+api: uvicorn llumdocs.api.app:app --host 0.0.0.0 --port 8000
+ui:  python -m llumdocs.ui.main

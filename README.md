@@ -27,15 +27,16 @@ uv run llumdocs-api
 # -> http://localhost:8000 (OpenAPI at /docs)
 ```
 
-**Docker (CPU profiles shown):**
+**Docker:**
 
 ```bash
 cd docker
 
-docker compose --profile cpu --profile ui up --build
+docker compose up --build
 
 # -> API on http://localhost:8000
 # -> UI  on http://localhost:7860
+# -> Ollama on http://localhost:11434
 ```
 
 **Smoke test translate:**
@@ -57,7 +58,7 @@ curl -s -X POST "http://localhost:8000/api/translate" \
 * 🧾 Document summarization, keyword extraction, text transformation (simplify, technical, company tone)
 * 🖼️ Image description using vision models
 * 📧 Email intelligence (routing, phishing detection, sentiment) via optional extra
-* 🐳 Docker Compose profiles for API + UI + Ollama (CPU/GPU and HF-bundled variants)
+* 🐳 Docker Compose stack with API + UI + Ollama services
 * 🔧 Clean dev flow with `uv` (sync, run, test, lint)
 
 ---
@@ -107,32 +108,30 @@ uv run llumdocs-ui
 
 The UI runs directly against the Python services; the API is useful when you want to integrate LlumDocs over HTTP from other systems.
 
-### Docker Compose (CPU)
+### Docker Compose
 
 ```bash
 cd docker
 
-docker compose --profile cpu --profile ui up --build
+docker compose up --build
 ```
 
 This starts:
 
-* `api` – FastAPI on `http://localhost:8000`
-* `ui` – Gradio on `http://localhost:7860`
-* `ollama` – Local LLM server (mapped from `11435` on the host)
+* `app` – FastAPI API + Gradio UI (via `honcho` and `docker/Procfile`)
+  * API: `http://localhost:8000`
+  * UI: `http://localhost:7860`
+* `ollama` – Local LLM server on `http://localhost:11434`
 
-Profiles:
-
-* `cpu` – CPU-only API + Ollama
-* `gpu` – GPU-enabled API with email intelligence
-* `ui` – Gradio UI
-* `hf-bundled` – API with HuggingFace models baked into the image
+The `app` service automatically waits for Ollama to be ready before starting. Both services use the `OLLAMA_API_BASE` environment variable (set to `http://ollama:11434` in Docker, `http://localhost:11434` for local runs).
 
 Stop the stack with:
 
 ```bash
 docker compose down
 ```
+
+**Note:** The Docker setup uses a single `app` container that runs both API and UI processes via `honcho`. For separate containers or GPU profiles, see `docker/README.md`.
 
 ---
 
@@ -151,7 +150,8 @@ LLUMDOCS_CORS_ORIGINS=http://localhost:7860,http://localhost:8000
 
 # LLM backends
 OPENAI_API_KEY=...
-OLLAMA_API_BASE=http://localhost:11434  # or http://ollama:11434 in Docker
+# Ollama base URL (use http://localhost:11434 for local, http://ollama:11434 in Docker)
+OLLAMA_API_BASE=http://localhost:11434
 
 # Optional: UI launch config
 LLUMDOCS_UI_HOST=0.0.0.0
@@ -161,8 +161,9 @@ LLUMDOCS_UI_SHARE=false
 
 In Docker, `docker/docker-compose.yml`:
 
-* Mounts `../.env` into API and UI containers.
-* Sets `OLLAMA_API_BASE` and `LLUMDOCS_API_URL=http://api:8000` for the UI.
+* Mounts `../.env` into the `app` container.
+* Sets `OLLAMA_API_BASE=http://ollama:11434` (Docker service name) for the app to reach Ollama.
+* Sets `LLUMDOCS_API_URL=http://localhost:8000` for the UI to reach the API (same container).
 
 See `docs/INSTALL.md` for a more detailed environment guide and model recommendations.
 
@@ -173,6 +174,7 @@ See `docs/INSTALL.md` for a more detailed environment guide and model recommenda
 * OpenAPI / Swagger: `http://localhost:8000/docs`
 * Health: `GET /health`
 * Readiness: `GET /ready`
+* Ollama health: `GET /health/ollama` (checks Ollama connectivity)
 
 ### Example — Translate
 
@@ -247,6 +249,8 @@ sudo kill -9 <PID>
 
 * Ensure your `.env` sets `OPENAI_API_KEY` or `OLLAMA_API_BASE` correctly.
 * In Docker, confirm the `ollama` container is healthy (`docker ps` and `docker logs ollama`).
+* Check API startup logs for `[LlumDocs] OLLAMA_API_BASE = ...` and `Ollama reachable ✔` messages.
+* Test Ollama connectivity: `curl http://localhost:11434/api/tags` (local) or `docker compose exec app curl http://ollama:11434/api/tags` (Docker).
 
 **Gradio error:** `TypeError: BlockContext.__init__() got an unexpected keyword argument 'css'`
 
@@ -275,8 +279,9 @@ llumdocs/
   llm.py                  # LiteLLM / model selection helpers
 
 docker/
-  docker-compose.yml      # API, UI, Ollama, profiles (cpu/gpu/hf-bundled)
-  Dockerfile              # Multi-stage build for api/ui images
+  docker-compose.yml      # App (API+UI) + Ollama services
+  Dockerfile              # Single-stage build for app container
+  wait-for-ollama.sh     # Health check script for Ollama readiness
 
 docs/
   ARCHITECTURE.md         # High-level architecture notes

@@ -17,6 +17,7 @@ from llumdocs.llm import (
     resolve_vision_model,
     vision_completion,
 )
+from llumdocs.settings import get_ollama_base
 
 
 def test_resolve_model_ollama_includes_keep_alive(monkeypatch):
@@ -125,6 +126,13 @@ def test_available_models_includes_ollama(monkeypatch):
 
     assert len(models) >= 1
     assert any("ollama" in model_id.lower() for _, model_id in models)
+
+
+def test_get_ollama_base_uses_env_when_set(monkeypatch):
+    """get_ollama_base should reflect OLLAMA_API_BASE and strip trailing slash."""
+    monkeypatch.setenv("OLLAMA_API_BASE", "http://example:1234/")
+    base = get_ollama_base()
+    assert base == "http://example:1234"
 
 
 def test_available_vision_models_includes_ollama(monkeypatch):

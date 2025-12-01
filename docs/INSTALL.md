@@ -147,11 +147,9 @@ LLUMDOCS_DEFAULT_VISION_MODEL=o4-mini
    ```bash
    ollama serve
    ```
-4. Verify:
+4. Verify locally:
    ```bash
-   lsof -i :11434          # confirm service
-   ollama list             # confirm models
-   ollama run llama3.1:8b  # optional smoke test
+   curl -sS http://localhost:11434/api/tags
    ```
 
 ### OpenAI

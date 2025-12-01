@@ -104,7 +104,7 @@ User Action
    │  - Detects provider from model_id ("ollama/llama3.1:8b" or "gpt-4o-mini")
    │  - Formats request for provider
    │  - Sends HTTP request:
-   │    * Ollama: POST http://localhost:11434/api/chat
+   │    * Ollama: POST ${OLLAMA_API_BASE}/api/chat
    │    * OpenAI: POST https://api.openai.com/v1/chat/completions
    │
 6. Provider processes request and returns response

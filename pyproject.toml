@@ -23,6 +23,7 @@ dependencies = [
   "pdf2image",
   "pytesseract",
   "rapidocr-onnxruntime",
+  "honcho",
 ]
 
 [project.scripts]

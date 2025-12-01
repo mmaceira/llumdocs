@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from llumdocs.services.ollama_client import _base as ollama_base, health as ollama_health
+
 # Load environment variables from .env file (if present)
 # This makes development usage consistent with Docker, where env_file is used
 load_dotenv()
@@ -38,6 +40,16 @@ def create_app() -> FastAPI:
     app.include_router(image_router)
     app.include_router(document_extraction_router)
 
+    @app.on_event("startup")
+    def _log_ollama() -> None:
+        base = ollama_base()
+        print(f"[LlumDocs] OLLAMA_API_BASE = {base}")
+        try:
+            ollama_health(timeout=2.0)
+            print("[LlumDocs] Ollama reachable \u2714")
+        except Exception as e:  # pragma: no cover - best-effort diagnostics
+            print(f"[LlumDocs] Ollama NOT reachable \u2716 : {e}")
+
     @app.get("/health", summary="Simple healthcheck")
     async def health():
         """Lightweight liveness probe used by deployment platforms."""
@@ -47,6 +59,12 @@ def create_app() -> FastAPI:
     async def ready():
         """Readiness probe for deployment platforms. Checks basic configuration."""
         return {"status": "ready"}
+
+    @app.get("/health/ollama", summary="Ollama connectivity healthcheck")
+    async def health_ollama():
+        """Check that Ollama is reachable from the API process."""
+        ollama_health(timeout=2.0)
+        return {"ok": True, "base": ollama_base()}
 
     return app
 

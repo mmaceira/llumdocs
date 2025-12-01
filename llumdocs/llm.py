@@ -20,6 +20,8 @@ from litellm.exceptions import (
     Timeout,
 )
 
+from llumdocs.settings import get_ollama_base
+
 # Configurable timeout for LLM calls (in seconds)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLUMDOCS_LLM_TIMEOUT_SECONDS", "30.0"))
 # Vision models are slower, so allow a separate (longer) timeout while still
@@ -115,7 +117,7 @@ def resolve_model(env_preference: Optional[str] = None) -> ModelConfig:
             if os.getenv("LLUMDOCS_DISABLE_OLLAMA") == "1":
                 continue
 
-            api_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
+            api_base = get_ollama_base()
             return ModelConfig(model_id=model, kwargs={"api_base": api_base, "keep_alive": 0})
 
         # Assume OpenAI-compatible API for any other model id
@@ -142,7 +144,7 @@ def resolve_vision_model(env_preference: Optional[str] = None) -> ModelConfig:
             if os.getenv("LLUMDOCS_DISABLE_OLLAMA") == "1":
                 continue
 
-            api_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
+            api_base = get_ollama_base()
             return ModelConfig(model_id=model, kwargs={"api_base": api_base, "keep_alive": 0})
 
         # Assume OpenAI-compatible API for any other model id

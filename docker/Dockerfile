@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     poppler-utils \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast package installer)
@@ -22,8 +23,12 @@ COPY . .
 # Install Python deps using pyproject, including UI and email extras
 RUN uv sync --frozen --extra ui --extra email
 
-# Expose Gradio / FastAPI port
-EXPOSE 7860
+# Copy helper script to wait for Ollama to be ready
+COPY docker/wait-for-ollama.sh /usr/local/bin/wait-for-ollama
+RUN chmod +x /usr/local/bin/wait-for-ollama
 
-# Default command - use the same entrypoint as local UI (`uv run llumdocs-ui`)
-CMD ["uv", "run", "llumdocs-ui"]
+# Expose Gradio / FastAPI ports
+EXPOSE 7860 8000
+
+# Default command is controlled by docker-compose to run both API and UI
+CMD ["bash", "-lc", "honcho -f docker/Procfile start"]
