@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 # This makes development usage consistent with Docker, where env_file is used
 load_dotenv()
 
+API_BASE = os.getenv("LLUMDOCS_API_URL", "http://localhost:8000")
+
 from llumdocs.llm import available_models, available_vision_models  # noqa: E402
 from llumdocs.ui.components import (  # noqa: E402
     LANGUAGE_OPTIONS,
@@ -271,7 +273,12 @@ def main() -> None:
     share = os.getenv("LLUMDOCS_UI_SHARE", "false").lower() in ("true", "1", "yes")
     server_name = os.getenv("LLUMDOCS_UI_HOST", "0.0.0.0")
     server_port = int(os.getenv("LLUMDOCS_UI_PORT", "7860"))
-    demo.launch(share=share, server_name=server_name, server_port=server_port)
+    demo.launch(
+        share=share,
+        server_name=server_name,
+        server_port=server_port,
+        show_api=False,
+    )
 
 
 if __name__ == "__main__":

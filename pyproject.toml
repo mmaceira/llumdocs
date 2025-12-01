@@ -9,7 +9,6 @@ requires-python = ">=3.12"
 dependencies = [
   "litellm>=1.0.0",
   "openai>=1.0.0",
-  "gradio",
   "typer",
   "fastapi",
   "uvicorn[standard]",
@@ -40,6 +39,10 @@ dev = [
   "ruff",
   "black",
   "pytest",
+]
+ui = [
+  "gradio>=4,<5",
+  "websockets>=10,<13",
 ]
 
 [build-system]

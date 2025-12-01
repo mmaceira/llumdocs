@@ -50,8 +50,8 @@ Short checklist for contributing code without breaking conventions.
 ## 5. Handy Commands
 
 ```bash
-# Install dev extras in the current environment
-uv sync --all-extras && source .venv/bin/activate
+# Install extras for local development (UI + tooling)
+uv sync --extra ui --extra dev && source .venv/bin/activate
 
 # Lint + format everything
 ruff check --fix . && ruff format .

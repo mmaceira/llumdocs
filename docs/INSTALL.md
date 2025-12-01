@@ -23,12 +23,20 @@ cd LlumDocs
 # Install uv if you do not have it yet
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create the virtualenv and install deps
+# Create the virtualenv and install base deps
 uv sync
+
+# Recommended for full dev setup (UI + tools)
+uv sync --extra ui --extra dev
+
+# Optional: email intelligence extras (large, torch+transformers)
+uv sync --extra email
+
+# (Optional) activate the virtualenv if you prefer direct python/pytest usage
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 ```
 
-`uv sync` reads `pyproject.toml`, creates `.venv`, and installs both runtime dependencies and optional dev extras when you pass `--all-extras`.
+`uv sync` reads `pyproject.toml`, creates `.venv`, and installs runtime dependencies. Extras such as `ui`, `dev`, and `email` are enabled via `--extra <name>`.
 
 ### Email Intelligence (Optional Extra)
 
@@ -155,11 +163,13 @@ Set `OPENAI_API_KEY` in `.env` (or export it in your shell). LiteLLM automatical
 ## 5. Run the Stack
 
 ```bash
-# API
-uv run uvicorn llumdocs.api.app:app --reload
+# API (preferred)
+uv run llumdocs-api
+# or: uv run uvicorn llumdocs.api.app:app --reload
 
-# Gradio UI
-uv run python -m llumdocs.ui.main
+# Gradio UI (preferred)
+uv run llumdocs-ui
+# or: uv run python -m llumdocs.ui.main
 ```
 
 Visit `http://localhost:8000/docs` for the FastAPI explorer and `http://localhost:7860` for the UI (default Gradio port).
@@ -194,66 +204,28 @@ They are helpful when validating that your providers and credentials are correct
 
 ## 7. Docker Deployment (Optional)
 
-LlumDocs can be deployed using Docker and Docker Compose, with optional Ollama integration.
+LlumDocs can be deployed using Docker and Docker Compose profiles, with optional Ollama and Hugging Face integration.
 
-### Quick Start with Docker Compose
+### Quick Start with Docker Compose (CPU + UI)
 
 1. **Create a `.env` file** in the project root with your configuration:
    ```bash
    OPENAI_API_KEY=sk-your-key
    LLUMDOCS_DEFAULT_MODEL=gpt-4o-mini
    LLUMDOCS_DEFAULT_VISION_MODEL=o4-mini
-   INSTALL_EMAIL=1  # Set to 1 to include email intelligence dependencies
    ```
 
-2. **Build and start services:**
+2. **Build and start services (API + UI + Ollama, CPU-only):**
    ```bash
-   docker-compose up -d
+   cd docker
+   docker compose --profile cpu --profile ui up --build
    ```
 
-3. **Pre-pull Ollama models** (if using Ollama):
-   ```bash
-   docker-compose exec ollama ollama pull llama3.1:8b
-   docker-compose exec ollama ollama pull qwen3-vl:8b
-   ```
-
-4. **Access services:**
+3. **Access services:**
    - FastAPI: `http://localhost:8000`
    - API docs: `http://localhost:8000/docs`
    - Health check: `http://localhost:8000/health`
-   - Ollama: `http://localhost:11434`
+   - Gradio UI: `http://localhost:7860`
+   - Ollama (Docker): `http://localhost:11435` (mapped to `ollama:11434` in the network)
 
-### Dockerfile Details
-
-The `Dockerfile` supports building with or without email intelligence:
-
-```bash
-# Build without email intelligence (lighter image)
-docker build -t llumdocs .
-
-# Build with email intelligence
-docker build --build-arg INSTALL_EMAIL=1 -t llumdocs .
-```
-
-### Production Considerations
-
-For production deployments, consider:
-
-- **Uvicorn workers**: Run multiple workers for better concurrency:
-  ```bash
-  uvicorn llumdocs.api.app:app --host 0.0.0.0 --port 8000 --workers 4
-  ```
-
-- **Resource limits**: Set appropriate CPU/memory limits in `docker-compose.yml` or Kubernetes manifests.
-
-- **Health checks**: The container includes a health check endpoint at `/health` and readiness at `/ready`.
-
-- **Persistent volumes**:
-  - HF models cache: `/models/hf` (mounted as `hf-cache` volume)
-  - Ollama models: `/root/.ollama` (mounted as `ollama-models` volume)
-
-- **GPU support**: For GPU-accelerated Ollama, uncomment the GPU deployment section in `docker-compose.yml` and ensure NVIDIA Container Toolkit is installed.
-
----
-
-Once the above steps succeed, continue with `docs/TESTING.md` to validate your setup via unit and integration tests.
+For GPU profiles, pre-bundled Hugging Face models, and more advanced options, see `docker/README.md`. Once the above steps succeed, continue with `docs/TESTING.md` to validate your setup via unit and integration tests.
