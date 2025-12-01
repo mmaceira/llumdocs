@@ -108,6 +108,7 @@ def create_document_extraction_panel(
             fn=run_extraction,
             inputs=[extraction_file, doc_type_dropdown, model_dropdown, ocr_engine_dropdown],
             outputs=[extraction_output, extraction_status, extraction_pdf, extraction_error],
+            api_name=None,
         )
 
     return extraction_panel, extraction_button

@@ -84,6 +84,7 @@ def create_summary_panel(
             fn=run_summary,
             inputs=[summary_textbox, summary_type, model_dropdown],
             outputs=[summary_output, summary_status, summary_error],
+            api_name=None,
         )
 
     return summary_panel, summary_button

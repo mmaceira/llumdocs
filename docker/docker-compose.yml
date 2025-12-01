@@ -1,153 +1,17 @@
+version: "3.9"
+
 services:
-  # ==============================================================
-  # FastAPI API (CPU-only, no email intelligence)
-  # ==============================================================
-  api:
+  llumdocs:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      target: api
+    container_name: llumdocs
     env_file:
       - ../.env
-    environment:
-      # Use Docker Ollama service (internal network)
-      # To use host Ollama instead, set OLLAMA_API_BASE=http://host.docker.internal:11434 in .env
-      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://ollama:11434}
-      HF_HOME: /models/hf
-    volumes:
-      # Cache for HuggingFace models (CPU-mode)
-      - hf_cache:/models/hf
     ports:
-      - "8000:8000"
-    # Ollama dependency is optional - can use host Ollama instead
-    # depends_on:
-    #   - ollama
-    profiles:
-      # Start this API in CPU, GPU and UI profiles
-      - cpu
-      - gpu
-      - ui
-
-  # ==============================================================
-  # FastAPI API with email intelligence (GPU-enabled)
-  # Only available in GPU profiles
-  # ==============================================================
-  api_email_gpu:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: api_email_gpu
-    env_file:
-      - ../.env
+      - "7861:7861"
     environment:
-      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://ollama:11434}
-      HF_HOME: /models/hf
-      LLUMDOCS_ENABLE_EMAIL_INTEL: "true"
-      NVIDIA_VISIBLE_DEVICES: "all"
-      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
-    volumes:
-      # Cache for HuggingFace models (GPU-mode)
-      - hf_cache:/models/hf
-    ports:
-      # Use different port to avoid conflict with CPU api
-      - "8001:8000"
-    depends_on:
-      - ollama
-    profiles:
-      - gpu
-      - hf-bundled
-    # Enable GPU access (requires NVIDIA Container Toolkit)
-    runtime: nvidia
-
-  # ==============================================================
-  # FastAPI API with bundled HuggingFace models
-  # (alternative to api, not meant to run at the same time)
-  # ==============================================================
-  api-hf:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: api_hf
-    env_file:
-      - ../.env
-    environment:
-      OLLAMA_API_BASE: http://ollama:11434
-      HF_HOME: /models/hf
-    volumes:
-      # Optional: still mount to persist across container rebuilds
-      - hf_cache:/models/hf
-    ports:
-      # Use the same external port, but with a separate profile so it doesn't
-      # conflict with `api`. Only one of api / api-hf should be running.
-      - "8000:8000"
-    depends_on:
-      - ollama
-    profiles:
-      - hf-bundled
-
-  # ==============================================================
-  # Gradio UI (CPU-only, no email intelligence)
-  # ==============================================================
-  ui:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: ui
-    env_file:
-      - ../.env
-    environment:
-      # Use Docker Ollama service (internal network)
-      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://ollama:11434}
-      LLUMDOCS_API_URL: http://api:8000
-    ports:
-      - "7860:7860"
-    depends_on:
-      api:
-        condition: service_started
-      ollama:
-        condition: service_healthy
-    profiles:
-      - ui
-
-  # ==============================================================
-  # Ollama (local LLM server for text + vision models)
-  # ==============================================================
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    volumes:
-      - ollama_models:/root/.ollama
-      # Mount entrypoint script to auto-pull models
-      - ./entrypoint-ollama.sh:/entrypoint-ollama.sh:ro
-    ports:
-      # Use different port to avoid conflict with host Ollama
-      # If host Ollama is not running, you can change this back to 11434:11434
-      - "11435:11434"
-    environment:
-      # Server-side default keep_alive (client requests still force keep_alive=0)
-      # This is informational; client requests explicitly set keep_alive=0
-      OLLAMA_KEEP_ALIVE: 0
-      # GPU support: enable when using --profile gpu or --profile hf-bundled
-      # For GPU support, install NVIDIA Container Toolkit first
-      NVIDIA_VISIBLE_DEVICES: "all"
-      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
-    entrypoint: ["/bin/bash", "/entrypoint-ollama.sh"]
-    healthcheck:
-      # Verify Ollama is responding (entrypoint script ensures models are downloaded)
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 600s  # Give up to 10 minutes for models to download on first start
-    profiles:
-      # Use Ollama in all relevant profiles
-      - cpu
-      - gpu
-      - hf-bundled
-    # GPU support: enable when using --profile gpu or --profile hf-bundled
-    # For GPU support, install NVIDIA Container Toolkit first
-    runtime: nvidia
-
-volumes:
-  ollama_models:
-  hf_cache:
+      PYTHONUNBUFFERED: "1"
+      SERVER_PORT: "7861"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

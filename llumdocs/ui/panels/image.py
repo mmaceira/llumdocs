@@ -75,6 +75,7 @@ def create_image_panel(
             fn=run_image_description,
             inputs=[image_input, detail_level, max_size, vision_model_dropdown],
             outputs=[image_output, image_status, image_error],
+            api_name=None,
         )
 
     return image_panel, image_button

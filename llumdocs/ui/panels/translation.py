@@ -74,6 +74,7 @@ def create_translation_panel(
             fn=run_translation,
             inputs=[translate_textbox, source_dropdown, target_dropdown, model_dropdown],
             outputs=[translate_output, translate_status, translate_error],
+            api_name=None,
         )
 
     return translate_panel, translate_button

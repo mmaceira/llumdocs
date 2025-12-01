@@ -65,6 +65,7 @@ def create_keywords_panel(
             fn=run_keywords,
             inputs=[keyword_textbox, keyword_slider, model_dropdown],
             outputs=[keyword_output, keyword_status, keyword_error],
+            api_name=None,
         )
 
     return keyword_panel, keyword_button

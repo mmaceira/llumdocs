@@ -123,6 +123,7 @@ def create_text_transformation_panel(
                 company_tone_language,
                 company_tone_note,
             ],
+            api_name=None,
         )
 
         transform_textbox = gr.Textbox(
@@ -193,6 +194,7 @@ def create_text_transformation_panel(
                 model_dropdown,
             ],
             outputs=[transform_output, transform_status, transform_error],
+            api_name=None,
         )
 
     return transform_panel, transform_button

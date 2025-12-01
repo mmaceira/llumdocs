@@ -281,6 +281,7 @@ def create_email_intelligence_panel() -> tuple[gr.Column, callable]:
                 email_status,
                 email_error,
             ],
+            api_name=None,
         )
 
     return email_panel, analyze_button

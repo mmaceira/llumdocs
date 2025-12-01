@@ -7,6 +7,26 @@ import os
 import gradio as gr
 from dotenv import load_dotenv
 
+# Work around a gradio/gradio-client JSON-schema bug that can crash get_api_info
+try:  # pragma: no cover - defensive patch for specific gradio versions
+    from gradio_client import utils as gradio_client_utils
+
+    _original_get_type = getattr(gradio_client_utils, "get_type", None)
+
+    if _original_get_type is not None:
+
+        def _safe_get_type(schema: object):
+            if not isinstance(schema, dict):
+                # For unexpected schemas (e.g. bool), fall back to a generic type
+                return "Any"
+            return _original_get_type(schema)  # type: ignore[misc]
+
+        gradio_client_utils.get_type = _safe_get_type  # type: ignore[assignment]
+except Exception:
+    # If anything goes wrong, don't prevent the UI from starting;
+    # worst case, we fall back to the original buggy behaviour.
+    pass
+
 # Load environment variables from .env file (if present)
 # This makes development usage consistent with Docker, where env_file is used
 load_dotenv()
@@ -171,13 +191,14 @@ def create_interface() -> gr.Blocks:
             panel_map, feature_button_refs
         )
 
-        for label, button, available, _elem_id in feature_button_refs:
-            if available and label in panel_map:
-                button.click(
-                    fn=lambda lab=label: switch_panel(lab),
-                    inputs=None,
-                    outputs=panel_outputs + button_outputs,
-                )
+        # Wire up panel switching only for clickable buttons and disable API exposure
+        for label, button in clickable_buttons:
+            button.click(
+                fn=lambda lab=label: switch_panel(lab),
+                inputs=None,
+                outputs=panel_outputs + button_outputs,
+                api_name=None,
+            )
 
         # Add JavaScript to show "Processing..." with live timer for all buttons
         gr.HTML(
@@ -270,14 +291,33 @@ def main() -> None:
     """CLI entrypoint for running the LlumDocs Gradio UI."""
 
     demo = create_interface()
-    share = os.getenv("LLUMDOCS_UI_SHARE", "false").lower() in ("true", "1", "yes")
-    server_name = os.getenv("LLUMDOCS_UI_HOST", "0.0.0.0")
-    server_port = int(os.getenv("LLUMDOCS_UI_PORT", "7860"))
+
+    # Backwards-compatible env handling:
+    # - Prefer generic SERVER_NAME / SERVER_PORT / SHARE used in containers
+    # - Fall back to legacy LLUMDOCS_UI_* envs for local/dev usage
+    share_env = os.getenv("SHARE", os.getenv("LLUMDOCS_UI_SHARE", "false"))
+    share = share_env.lower() in ("true", "1", "yes")
+
+    server_name = os.getenv("SERVER_NAME", os.getenv("LLUMDOCS_UI_HOST", "0.0.0.0"))
+    server_port = int(os.getenv("SERVER_PORT", os.getenv("LLUMDOCS_UI_PORT", "7860")))
+
+    # Force-disable Gradio's API/docs view to avoid gradio/gradio-client schema bugs.
+    # Even if LLUMDOCS_GRADIO_SHOW_API is set, we keep this off by default for stability.
+    show_api = False
+
+    # Newer Gradio versions have removed the `analytics_enabled` parameter.
+    # We rely on the default (analytics disabled for self-hosted) and avoid
+    # passing the deprecated argument to keep compatibility across versions.
+    #
+    # For the single-process CLI / Docker usage we *do* want this call to block,
+    # so we set prevent_thread_lock=False (the default) to keep the process alive.
     demo.launch(
         share=share,
         server_name=server_name,
         server_port=server_port,
-        show_api=False,
+        show_api=show_api,
+        inbrowser=False,
+        prevent_thread_lock=False,
     )
 
 
