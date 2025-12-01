@@ -463,14 +463,12 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
     pipeline_runner: Pipeline | None = None
     try:
         pipeline_runner = _get_sentiment_pipeline()
-        # Use top_k=None to get all scores (replaces deprecated return_all_scores=True)
-        # The sentiment-analysis pipeline with top_k=None should return all classes
-        result = pipeline_runner(
+        predictions = pipeline_runner(
             text_value,
             truncation=True,
             max_length=MAX_EMAIL_SEQUENCE_LENGTH,
-            top_k=None,  # Get all scores for all sentiment classes
-        )
+            return_all_scores=True,
+        )[0]
     except RuntimeError as exc:
         # If GPU out of memory during inference, try CPU fallback
         if "out of memory" in str(exc).lower() or "cuda" in str(exc).lower():
@@ -486,12 +484,12 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
                 device=-1,  # Force CPU
             )
             pipeline_runner = _SENTIMENT_PIPELINE
-            result = pipeline_runner(
+            predictions = pipeline_runner(
                 text_value,
                 truncation=True,
                 max_length=MAX_EMAIL_SEQUENCE_LENGTH,
-                top_k=None,  # Get all scores for all sentiment classes
-            )
+                return_all_scores=True,
+            )[0]
         else:
             raise EmailIntelligenceError(str(exc)) from exc
     except OSError as exc:
@@ -500,62 +498,18 @@ def analyze_sentiment(text: str) -> SentimentPrediction:
         if pipeline_runner is not None:
             _release_pipeline("_SENTIMENT_PIPELINE")
 
-    # Handle different return formats: could be a list or list of lists
-    # Pipeline returns list of results (one per input), so get first element
-    if not isinstance(result, list) or len(result) == 0:
-        raise EmailIntelligenceError(f"Pipeline returned invalid result: {type(result)}")
-
-    predictions = result[0]
-
-    # Handle different nested formats
-    # With top_k=None, result format can vary:
-    # - Sometimes: [[{...}, {...}, {...}]] (nested list)
-    # - Sometimes: [{...}, {...}, {...}] (flat list)
-    if isinstance(predictions, dict):
-        # Single prediction dict - wrap in list (shouldn't happen with top_k=None)
-        predictions = [predictions]
-    elif isinstance(predictions, str):
-        # String format - this shouldn't happen, but handle gracefully
-        raise EmailIntelligenceError(
-            f"Pipeline returned string instead of predictions. "
-            f"Result format: {type(result)}, first element type: {type(predictions)}"
-        )
-    elif isinstance(predictions, list):
-        # If predictions is a list of lists (nested), flatten it
-        if predictions and isinstance(predictions[0], list):
-            predictions = predictions[0]
-    else:
-        raise EmailIntelligenceError(
-            f"Unexpected prediction format: {type(predictions)}. "
-            f"Expected list or dict, got: {predictions}"
-        )
-
     # Extract all scores and find the top prediction
     scores_by_label: Dict[str, float] = {}
     top_label = ""
     top_score = 0.0
 
     for pred in predictions:
-        if not isinstance(pred, dict):
-            continue
-        label = str(pred.get("label", ""))
-        score = float(pred.get("score", 0.0))
-        # Always add the score, even if label is empty (shouldn't happen, but be safe)
-        if label:
-            scores_by_label[label] = score
-            if score > top_score:
-                top_score = score
-                top_label = label
-        # If label is empty but we have a score, still try to use it
-        elif score > 0:
-            # This shouldn't happen, but log it if it does
-            scores_by_label[f"unknown_{len(scores_by_label)}"] = score
-
-    # Ensure we have at least one score
-    if not scores_by_label:
-        raise EmailIntelligenceError(
-            f"No valid predictions extracted. Predictions format: {predictions}"
-        )
+        label = str(pred["label"])
+        score = float(pred["score"])
+        scores_by_label[label] = score
+        if score > top_score:
+            top_score = score
+            top_label = label
 
     return SentimentPrediction(
         label=top_label,

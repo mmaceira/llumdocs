@@ -70,7 +70,10 @@ def create_interface() -> gr.Blocks:
         features_with_availability[0]["label"],
     )
 
-    with gr.Blocks(title="LlumDocs", css=FEATURE_BUTTON_CSS) as demo:
+    with gr.Blocks(title="LlumDocs") as demo:
+        # Inject custom CSS
+        gr.HTML(f"<style>{FEATURE_BUTTON_CSS}</style>", visible=False)
+
         gr.Markdown(
             """
             # 🌟 LlumDocs

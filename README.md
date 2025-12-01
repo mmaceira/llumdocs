@@ -2,6 +2,42 @@
 
 LlumDocs is a FastAPI + Gradio toolkit that turns raw documents, text and images into structured knowledge. It wraps LiteLLM so you can swap between OpenAI and Ollama models without touching the business logic.
 
+## Key Features
+
+LlumDocs provides a comprehensive suite of AI-powered document processing and text transformation capabilities:
+
+- **🌐 Text Translation** – Translate between Catalan, Spanish, and English with automatic language detection. Perfect for multilingual workflows and content localization.
+
+- **✍️ Text Transformation** – Rewrite text in different styles:
+  - **Plain language** – Simplify complex text for general audiences (child/teen/adult reading levels)
+  - **Technical tone** – Elevate formality and technicality, optionally scoped to specific domains
+  - **Company tone** – Adapt text to match your organization's communication style
+
+- **📄 Document Summarization** – Generate concise summaries from long documents:
+  - **Short summaries** – Quick overviews for fast scanning
+  - **Executive summaries** – High-level insights for decision-makers
+
+- **🔑 Keyword Extraction** – Automatically extract key terms, concepts, and phrases from documents to identify main topics and themes.
+
+- **🖼️ Image Description** – Generate detailed captions and descriptions for images using vision models. Supports both brief captions and comprehensive analyses.
+
+- **📋 Document Extraction** – Extract structured data from business documents:
+  - Delivery notes
+  - Bank statements
+  - Payroll documents
+  - Uses OCR for scanned documents
+
+- **📧 Email Intelligence** – Analyze emails for business automation:
+  - **Routing** – Classify emails by category and priority
+  - **Phishing detection** – Identify suspicious emails
+  - **Sentiment analysis** – Multilingual sentiment detection
+
+All features are accessible through a user-friendly Gradio UI, REST API endpoints, or direct Python service imports for integration into your workflows.
+
+![Document Summary](docs/images/document_summary.png)
+
+*Example: Document summarization interface showing how LlumDocs processes and summarizes long documents into concise insights.*
+
 ---
 
 ## Quickstart
@@ -11,6 +47,11 @@ Once dependencies and your `.env` are set up (see `docs/INSTALL.md`):
 ```bash
 # 1. Launch the Gradio UI
 uv run llumdocs-ui
+
+# Note: The Gradio UI talks directly to the Python service layer in
+# `llumdocs/services` and does NOT use the FastAPI HTTP API. You only
+# need FastAPI if you want to call LlumDocs over HTTP from other
+# applications or systems.
 
 # 2. (Optional) Launch FastAPI in another terminal
 uv run uvicorn llumdocs.api.app:app --reload
@@ -194,5 +235,6 @@ response = completion(
 - Feature specs & roadmap: `docs/LLM_FEATURE_SPECS.md`
 - Development standards & workflows: `docs/LLM_DEVELOPMENT_GUIDE.md`
 - High-level positioning and messaging: `docs/LLM_GUIDE_GLOBAL.md`
+- GUI screenshots gallery: `docs/GUI_SCREENSHOTS.md`
 
 Have questions or want to plug a new capability? Open an issue or drop a note in `docs/LLM_FEATURE_SPECS.md` before starting new work.
