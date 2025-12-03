@@ -1,241 +1,72 @@
-# Docker Setup for LlumDocs
+## Running LlumDocs in different environments
 
-This directory contains Docker Compose configurations for different deployment scenarios.
+This document gives a high‑level view of how LlumDocs can be run in containerised (Docker‑based) environments.
+It is intended for people who decide **where** LlumDocs runs, not for those building or modifying its internals.
 
-## Prerequisites
+LlumDocs can be:
 
-### Install Docker Compose
+- run on a single machine for a small team,
+- deployed on a server for a department or organisation,
+- or integrated into existing platforms that already use containers.
 
-Docker Compose profiles require Docker Compose v2.0+ (plugin version). Install it:
+---
 
-**Option 1: Install Docker Compose plugin (recommended)**
-```bash
-# On Ubuntu/Debian
-sudo apt-get update
-sudo apt-get install docker-compose-plugin
+### What Docker adds on top of the base product
 
-# Verify installation
-docker compose version
-```
+When LlumDocs is packaged and run with Docker:
 
-**Option 2: Install standalone docker-compose (v1)**
-```bash
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-docker-compose --version
-```
+- The web interface, API, and supporting components are started together in a predictable way.
+- The environment is consistent across machines, which makes behaviour more repeatable.
+- Optional components (such as local language models or GPU acceleration) can be turned on or off depending on the host infrastructure.
 
-Note: Standalone docker-compose (v1) doesn't support profiles. You'll need Docker Compose v2+ to use this setup.
+From an end‑user point of view, the experience is the same:
+you open a URL provided by your organisation and use the features described elsewhere in the documentation.
 
-## Usage with Profiles (Docker Compose v2+)
+---
 
-### Building Images
+### Typical deployment patterns
 
-**Important:** When the Dockerfile changes (e.g., after adding email intelligence support), rebuild with `--no-cache` to ensure all dependencies are installed:
+- **Local or pilot environment**
+  - Used for evaluation, prototyping, or small teams.
+  - Usually runs on a single machine using containers.
+  - Users access LlumDocs through a browser on `http://localhost` or an internal address.
 
-```bash
-cd docker
-docker compose --profile cpu --profile ui build --no-cache
-```
+- **Shared internal service**
+  - Used by many users across a department or organisation.
+  - Runs on a dedicated server or cluster managed by IT or platform teams.
+  - Users access LlumDocs through an internal URL or via integrations in other tools.
 
-Then start the services:
-```bash
-docker compose --profile cpu --profile ui up -d
-```
+- **Hybrid setups**
+  - Some parts (for example, local language models) may run close to the data, while other parts (such as the user interface) are exposed more broadly.
+  - This allows organisations to balance performance, cost, and data‑location requirements.
 
-Or build and start in one command:
-```bash
-cd docker
-docker compose --profile cpu --profile ui up --build --no-cache
-```
+For all of these, the responsibility for configuring and operating the containers sits with your infrastructure or platform owner.
 
-### CPU-only setup
-```bash
-cd docker
-docker compose --profile cpu up --build
-```
+---
 
-### GPU setup (requires NVIDIA Container Toolkit)
-```bash
-cd docker
-docker compose --profile gpu up --build
-```
+### CPU and GPU considerations
 
-### With Gradio UI
-```bash
-cd docker
-docker compose --profile ui up --build
-```
+LlumDocs works on standard CPU‑only machines. In addition, some environments may:
 
-### GPU + UI together
-```bash
-cd docker
-docker compose --profile gpu --profile ui up --build
-```
+- enable **GPU acceleration** to speed up heavier AI workloads,
+- or combine CPU and GPU resources to support more concurrent users.
 
-### With pre-bundled HuggingFace models (faster first request)
-```bash
-cd docker
-docker compose --profile hf-bundled up --build
-```
+As an end user, you do not need to choose between CPU and GPU directly; you simply use LlumDocs as usual.
+If performance is critical for your use case, your IT or platform team can decide whether GPU support is appropriate.
 
-**Note:** The regular `api` service includes email intelligence support, but models download on first use. The `api-hf` service pre-downloads models during build for faster first requests (but creates a larger image).
+For more background on GPU‑enabled environments, see `docker/SETUP_GPU.md`.
 
-## Model Downloads
+---
 
-### Ollama Models (Text & Vision)
+### What administrators should decide
 
-Ollama models are **automatically downloaded** when the container starts. The entrypoint script ensures both required models are available:
+If you are responsible for offering LlumDocs to others, you will typically decide:
 
-- `llama3.1:8b` - Text model for translation, summaries, etc.
-- `qwen3-vl:8b` - Vision model for image description
+- where it runs (local machine, shared server, or existing container platform),
+- how users authenticate and reach it (URL, network access, single sign‑on),
+- which features are available (for example, whether to enable email intelligence or certain document types),
+- whether to use CPU‑only or add GPU acceleration,
+- and how to monitor and update the service over time.
 
-Models are stored in the `ollama_models` Docker volume and persist across container restarts. On first start, the download may take 5-10 minutes depending on your connection.
-
-**Manual pull (if needed):**
-```bash
-# If using docker compose (v2)
-docker compose exec ollama ollama pull llama3.1:8b
-docker compose exec ollama ollama pull qwen3-vl:8b
-
-# If using docker-compose (v1)
-docker-compose exec ollama ollama pull llama3.1:8b
-docker-compose exec ollama ollama pull qwen3-vl:8b
-```
-
-### HuggingFace Models (Email Intelligence)
-
-Email intelligence models are downloaded **on first use** when using the regular `api` service:
-
-- `MoritzLaurer/bge-m3-zeroshot-v2.0` - Email routing classification
-- `cybersectony/phishing-email-detection-distilbert_v2.1` - Phishing detection
-- `cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual` - Sentiment analysis
-
-Models are cached in the `hf_cache` Docker volume at `/models/hf` and persist across restarts.
-
-**Pre-download models (optional):** Use the `api-hf` service which pre-downloads models during build for faster first requests.
-
-## Access Services
-
-- FastAPI API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Gradio UI: http://localhost:7860
-- Ollama (Docker): http://localhost:11435 (or 11434 if host Ollama is not running)
-
-## Environment Configuration
-
-Before starting, ensure you have a `.env` file in the project root:
-
-```bash
-cd /path/to/LlumDocs
-cp .env.template .env
-# Edit .env with your API keys and preferences
-```
-
-Key variables:
-- `OPENAI_API_KEY` - Your OpenAI API key (optional, if using Ollama only)
-- `LLUMDOCS_DEFAULT_MODEL` - Default text model (e.g., `gpt-4o-mini` or `ollama/llama3.1:8b`)
-- `LLUMDOCS_DEFAULT_VISION_MODEL` - Default vision model (e.g., `o4-mini` or `ollama/qwen3-vl:8b`)
-- `LLUMDOCS_LLM_TIMEOUT_SECONDS` - Timeout for text calls (default 30 seconds)
-- `LLUMDOCS_VISION_TIMEOUT_SECONDS` - Timeout for vision calls (default 60 seconds)
-- `LLUMDOCS_EMAIL_MAX_TOKENS` - Max tokens per email sent to HuggingFace classifiers (default 512)
-- `OLLAMA_API_BASE` - Ollama server URL (defaults to `http://ollama:11434` for Docker Ollama, or `http://host.docker.internal:11434` for host Ollama)
-- `HF_HOME` - HuggingFace cache directory (defaults to `/models/hf` in containers)
-
-## Using Host Ollama (Recommended)
-
-If you already have Ollama running on your host machine, the Docker services will automatically connect to it via `host.docker.internal:11434`. This avoids port conflicts and lets you use your existing Ollama setup.
-
-To use Docker Ollama instead, set in your `.env`:
-```bash
-OLLAMA_API_BASE=http://ollama:11434
-```
-
-Note: Docker Ollama runs on port 11435 externally to avoid conflicts with host Ollama.
-
-## Troubleshooting
-
-### Port Already in Use
-
-If you get errors like `bind: address already in use`, you have services running on those ports:
-
-**Check what's using the ports:**
-```bash
-ss -tlnp | grep -E ':(8000|7860|11434)'
-```
-
-**Options:**
-1. **Stop host services** (if you want to use Docker):
-   ```bash
-   pkill -f "uvicorn llumdocs"
-   pkill -f "llumdocs.ui.main"
-   pkill -f "ollama serve"
-   ```
-
-2. **Use different ports** - Edit `docker/docker-compose.yml` and change the port mappings:
-   ```yaml
-   ports:
-     - "8001:8000"  # API on 8001 instead of 8000
-     - "7861:7860"  # UI on 7861 instead of 7860
-   ```
-
-3. **Use host services** - Keep using your existing host services and just use Docker for specific components.
-
-### Docker Ollama Port Conflict
-
-If host Ollama is running on 11434, Docker Ollama will use port 11435. To change this, edit `docker/docker-compose.yml`:
-```yaml
-ports:
-  - "11434:11434"  # Change back if host Ollama is stopped
-```
-
-### GPU Runtime Not Found
-
-If you see `unknown or invalid runtime name: nvidia`, see `SETUP_GPU.md` for NVIDIA Container Toolkit installation instructions.
-
-### View Logs
-
-```bash
-# All services
-docker compose logs
-
-# Specific service
-docker compose logs api
-docker compose logs ui
-docker compose logs ollama
-
-# Follow logs
-docker compose logs -f
-```
-
-### Rebuilding After Changes
-
-If you modify the Dockerfile or dependencies, rebuild with `--no-cache`:
-
-```bash
-cd docker
-# Rebuild specific services
-docker compose build --no-cache api
-docker compose build --no-cache ui
-
-# Rebuild all services
-docker compose build --no-cache
-
-# Rebuild and restart
-docker compose up --build --no-cache -d
-```
-
-### Stop Services
-
-```bash
-# Stop but keep containers
-docker compose stop
-
-# Stop and remove containers
-docker compose down
-
-# Stop and remove containers + volumes (⚠️ deletes model caches)
-docker compose down -v
-```
-
-**Warning:** `docker compose down -v` removes all volumes, including `ollama_models` and `hf_cache`, which means models will need to be re-downloaded on next start.
+The rest of this repository’s documentation focuses on what users can do once LlumDocs is available.
+For environment‑specific instructions, follow your organisation’s internal platform and security guidelines.

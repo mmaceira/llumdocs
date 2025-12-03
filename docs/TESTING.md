@@ -1,85 +1,63 @@
- # Testing LlumDocs
+## Reliability and quality in LlumDocs
 
-This document describes how to run the automated suites after you install the project (see `docs/INSTALL.md`). Tests assume the repository root as working directory.
+This document explains, in simple terms, what you can expect from LlumDocs in terms of reliability and behaviour.
 
----
-
-## Unit Tests (mocked LLM calls)
-
-No external providers are required—LiteLLM calls are mocked.
-
-To avoid pulling Hugging Face models during tests, run the unit suite without
-any email-intelligence integration tests (currently, there are none that require
-HF; if you add some, mark them `@pytest.mark.integration`).
-
-```bash
-# run everything
-uv run pytest
-
-# skip integration markers
-uv run pytest -m "not integration"
-
-# unit-only, no HuggingFace (excludes email intelligence tests)
-# Useful for CI jobs without GPU or when transformers/torch are not installed
-uv run pytest -m "not integration" --ignore=tests/test_email_intelligence_service.py
-
-# single file
-uv run pytest tests/test_translation_service.py
-```
+LlumDocs is designed to be a dependable assistant for working with documents, emails, and images, but like any AI‑powered system it is not infallible. Understanding its strengths and limits helps you use it confidently.
 
 ---
 
-## Integration Tests (live providers)
+### What “reliable” means in practice
 
-These tests exercise real OpenAI/Ollama models and are marked with `@pytest.mark.integration`.
+When you use LlumDocs, you can generally expect that:
 
-### 1. Configure providers
+- The same kind of input will produce **broadly similar results** over time (for example, similar‑style summaries for similar documents).
+- Features such as translation, summaries, and document extraction are **available consistently** when your organisation’s environment is healthy.
+- Errors are usually accompanied by **clear messages** rather than silent failures, so you know when something went wrong.
 
-- **OpenAI**
-  ```bash
-  export OPENAI_API_KEY="pk-live-key"
-  ```
-
-- **Ollama**
-  ```bash
-  ollama serve
-  ollama pull llama3.1:8b
-  ollama pull qwen3-vl:8b
-  ```
-
-### 2. Specify test models
-
-```bash
-export LLUMDOCS_LIVE_TEST_MODELS="gpt-4o-mini,ollama/llama3.1:8b"
-export LLUMDOCS_LIVE_TEST_VISION_MODELS="o4-mini,ollama/qwen3-vl:8b"
-```
-
-If the variables are omitted, integration tests are automatically skipped.
-
-### 3. Run the suite
-
-```bash
-# all integration tests
-uv run pytest tests/integration -m integration
-
-# individual files
-uv run pytest tests/integration/test_text_tools_live.py -m integration
-uv run pytest tests/integration/test_translation_live.py -m integration
-uv run pytest tests/integration/test_image_description_live.py -m integration
-```
-
-### Model naming cheatsheet
-
-- Ollama text: `ollama/llama3.1:8b`
-- Ollama vision: `ollama/qwen3-vl:8b`
-- OpenAI: `gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo`, `o4-mini`, etc.
+Behind the scenes, your organisation may use automated checks and monitoring to make sure core features keep working as expected, but you do not need to run or configure these yourself.
 
 ---
 
-## Troubleshooting
+### How you can help ensure good outcomes
 
-- **`pytest` hangs** – ensure no integration test is waiting for remote providers; run with `-m "not integration"` to confirm unit suite is clean.
-- **`llm.resolve_model` errors** – double-check `LLUMDOCS_LIVE_TEST_MODELS` so every entry matches a LiteLLM identifier.
-- **Skipping unexpectedly** – `pytest` shows “SKIPPED” when env vars are missing. Export them in the same shell before running.
+You contribute to reliability simply by:
 
-Once both suites pass you can be confident that API endpoints, services, and LiteLLM wiring are behaving as expected.
+- Using the **right feature** for the task (for example, extraction for structured documents, summaries for long text, and email intelligence for emails).
+- Providing **complete and focused input** (for example, including the full relevant text but avoiding unrelated content).
+- **Reviewing results** before you act on them, especially when they affect customers, finances, or legal matters.
+
+If something looks unusual, you can:
+
+- try again with clearer instructions,
+- simplify the input (for example, focus on one document or one email at a time),
+- or choose a different feature that better matches your goal.
+
+---
+
+### When you should double‑check results
+
+Because LlumDocs uses AI models, you should always double‑check:
+
+- important numbers, dates, and identifiers,
+- legal or contractual clauses,
+- sensitive or high‑impact decisions.
+
+For everyday tasks (like drafting internal emails, summarising notes, or translating informal communication), LlumDocs can often be used more directly, as long as you read through the output once before sharing it.
+
+---
+
+### Reporting issues or unexpected behaviour
+
+If you encounter:
+
+- repeated errors for a particular feature,
+- results that are clearly inconsistent with your input,
+- or behaviour that seems unsafe or against your organisation’s policy,
+
+let your internal contact or support team know. When you report a problem, it helps to include:
+
+- which feature you used (for example, “Translation”, “Document extraction”, or “Email intelligence”),
+- a short description of what you were trying to achieve,
+- and, if allowed, anonymised examples of the input and output.
+
+This allows the team that maintains LlumDocs to investigate and, if needed, adjust configuration, prompts, or usage guidelines.

@@ -1,120 +1,152 @@
-# Global Guide for LLM Contributors
+## How LlumDocs helps you work with documents, emails, and images
 
-> Use this doc as the “system prompt” when generating code or config for **LlumDocs**.
+This guide explains LlumDocs from an end‑user point of view: what it is good at, what you can expect from it, and how to use it effectively in your daily work.
 
----
+LlumDocs acts as a smart assistant that:
 
-## 1. Mission & Role
-
-- You act as a senior Python assistant embedded in the LlumDocs repo.
-- Priorities: modular code, shared business logic, fast feedback through tests, and strict separation between infrastructure (LiteLLM), services, API, and UI.
-- Tools you always lean on: Python 3.12, FastAPI, Gradio, LiteLLM, `uv`, Ruff, Pytest.
-
----
-
-## 2. Architecture at a Glance
-
-```
-llumdocs/
-  llm.py (LiteLLM helpers & model resolution)
-  services/      # pure business logic
-  api/           # FastAPI routers (thin glue)
-  ui/            # Gradio Blocks tabs
-tests/
-docs/
-```
-
-- `llumdocs/llm.py` (and related helpers) own every call to LiteLLM. Service code never imports `openai` directly.
-- Services expose small, typed functions that return plain data structures or Pydantic models.
-- API and UI layers only validate inputs, call services, and shape responses for HTTP/Gradio.
-- Hugging Face pipelines live inside `services/email_intelligence_service.py`; they are loaded lazily so tests can patch the private `_get_*` helpers instead of downloading models.
+- understands text in Catalan, Spanish, and English,
+- reads and summarises long or complex documents,
+- extracts key information from structured files,
+- describes images,
+- and helps you triage and understand emails.
 
 ---
 
-## 3. Implementation Guardrails
+### What LlumDocs is designed to do
 
-- **Single source of truth:** the same service functions power REST endpoints and the Gradio UI.
-- **No hidden state:** prefer explicit parameters; only read from `.env` inside configuration helpers.
-- **Prompt discipline:** declare the role, format, guardrails (“do not invent data”), and expected schema in every LLM call.
-- **Logging:** never print secrets or raw customer payloads; rely on metadata (length, ids).
-- **Testing:** unit tests mock LiteLLM; integration tests toggle via `LLUMDOCS_LIVE_TEST_*` variables (`docs/TESTING.md`).
-- **External models:** when relying on Hugging Face pipelines (email intelligence), always wrap them in services with clear validation + error handling so API/UI can stay deterministic during outages.
+LlumDocs focuses on a few core goals:
 
----
+- **Save time on reading**
+  Turn long documents, reports, and email threads into short, accurate summaries that keep the important details.
 
-## 4. Typical Tasks and Expectations
+- **Bridge language barriers**
+  Translate and rewrite content between Catalan, Spanish, and English while preserving tone and intent.
 
-| Task | What “good” looks like |
-| --- | --- |
-| Add a feature | New function in `services/`, matching FastAPI router + UI tab, tests covering success + failure |
-| Tweak prompts | Edit the relevant service, keep instructions explicit, add regression tests using fixtures/mocks |
-| Wire a provider | Update LiteLLM helper + env guidance, never sprinkle provider-specific logic elsewhere |
-| Improve docs | Update the closest `.md` file and link it from the root `README.md` if it unlocks users |
+- **Improve clarity and tone**
+  Simplify complex text for non‑experts, or make drafts more formal and professional for external communication.
 
-Always check `docs/LLM_FEATURE_SPECS.md` to understand the canonical behavior before editing a service.
+- **Make hidden information visible**
+  Extract key fields from delivery notes, bank statements, and payroll documents, and describe the content of images.
 
----
+- **Support safer and smarter email handling**
+  Suggest how emails should be routed, highlight phishing risk, and surface overall sentiment.
 
-## 5. LiteLLM Usage Patterns
-
-```python
-from llumdocs.llm import chat_completion
-
-def summarize_document(text: str, summary_type: str = "short") -> str:
-    system = {
-        "role": "system",
-        "content": (
-            "You summarize documents. "
-            "Answer in Catalan when the source language is Catalan; otherwise match the input language. "
-            "Never invent facts."
-        ),
-    }
-    user = {
-        "role": "user",
-        "content": f"Summary type: {summary_type}\n\n{text}",
-    }
-    return chat_completion(messages=[system, user], model_hint="gpt-4o-mini")
-```
-
-```python
-def extract_invoice_fields(text: str) -> dict:
-    schema = (
-        "Return valid JSON with keys: invoice_number, date, supplier_name, "
-        "supplier_vat, total_amount, currency."
-    )
-    system = {"role": "system", "content": f"You extract invoices. {schema}"}
-    raw = chat_completion([system, {"role": "user", "content": text}], temperature=0)
-    return json.loads(raw)  # validated by Pydantic afterwards
-```
-
-Key rules:
-
-- Always request the final shape (JSON, plain text, etc.).
-- Use `model_hint` or pass through environment defaults; never hard-code provider-specific ids unless necessary.
-- Keep temperature deterministic (0–0.3) for extraction and testing.
+You can combine these abilities in different ways depending on your role and tasks.
 
 ---
 
-## 6. Prompt & UX Checklist
+### Typical scenarios by role
 
-- Specify tone, language, and forbidden behaviors.
-- For UI flows, expose minimal inputs and a single action button per tab.
-- For API flows, define Pydantic models for both requests and responses.
-- Document new utilities in `docs/LLM_FEATURE_SPECS.md` and link screenshots or sample payloads when helpful.
+#### Operations and back‑office teams
+
+- Quickly check delivery notes, invoices, and bank statements without retyping data.
+- Summarise long attachments before deciding what needs manual review.
+- Extract key amounts and references into your usual tracking tools.
+
+#### Customer support and service teams
+
+- Translate customer messages and your replies into the customer’s language.
+- Turn rough internal notes into polished, company‑tone responses.
+- Use email intelligence to route messages to the right queue and detect potential phishing.
+
+#### Managers and coordinators
+
+- Get executive summaries of reports, proposals, and meeting notes.
+- Scan the main topics of large documents via keywords.
+- Understand the overall tone and urgency of incoming communication.
+
+#### Compliance, HR, and finance
+
+- Summarise policies and procedures into shorter, easier‑to‑share versions.
+- Check payroll or financial documents more quickly using extracted fields.
+- Use sentiment and phishing indicators to spot risky emails earlier.
 
 ---
 
-## 7. Security & Privacy
+### What to expect from LlumDocs’ answers
 
-- Secrets live in `.env`, never inside code or docs.
-- Strip documents of personal data before logging. If you must log, log ids, token counts, or hashes.
-- Keep optional analytics behind feature flags or environment variables.
+LlumDocs is designed to:
+
+- **Respect your input**
+  It focuses on reusing and transforming the content you provide rather than inventing new facts.
+
+- **Adapt to your language**
+  For most features, it matches the language of your input or the language you explicitly choose.
+
+- **Stay concise where it matters**
+  Summaries and keywords aim to be short and focused, so you can scan them quickly.
+
+- **Preserve important details**
+  When simplifying text, it keeps key facts and decisions intact, and when making text more technical, it adds clarity without changing the underlying meaning.
+
+Because LlumDocs relies on AI, you should still:
+
+- validate critical numbers, dates, and legal details,
+- treat generated content as a draft you can review and edit,
+- and follow your organisation’s policies for sensitive data.
 
 ---
 
-## 8. When in Doubt
+### Tips for getting the best results
 
-- Re-read `README.md` for surface area, `docs/INSTALL.md` for env expectations, and `docs/TESTING.md` for validation steps.
-- Ask yourself: “Can UI, API, and scripts reuse this change without duplication?” If not, refactor before shipping.
+- **Be clear about your goal**
+  Before you click a button, think: “What do I need from this text or document?” For example:
+  - “I want a short summary I can paste into a ticket.”
+  - “I need a professional email reply in Spanish.”
+  - “I want to know if this email looks suspicious.”
 
-Following this guide keeps the repo predictable for humans and LLM contributors alike.***
+- **Choose the right feature**
+  Use:
+  - **Summaries** for long content,
+  - **Translation** for multilingual communication,
+  - **Text transformation** to change tone or complexity,
+  - **Document extraction** when you need structured fields,
+  - **Image description** for visual content,
+  - **Email intelligence** for routing, risk, and sentiment.
+
+- **Provide enough context**
+  When asking for rewrites or summaries, including a short note such as:
+  - “For a non‑technical customer,”
+  - “Internal report for management,”
+  - or “Short reply confirming we received the document”
+  helps LlumDocs choose a better style.
+
+- **Review before sending**
+  Use LlumDocs to draft and accelerate, then:
+  - read the final result,
+  - adjust names, dates, and specific references,
+  - and make sure it matches your organisation’s policies.
+
+---
+
+### How to combine features in real workflows
+
+- **From document to customer‑ready email**
+  1. Upload a contract or report and generate an executive summary.
+  2. Extract keywords or key points.
+  3. Use the company‑tone feature to turn the summary into a professional email explaining the main outcomes.
+
+- **From scanned statement to internal record**
+  1. Upload a bank statement or delivery note and run document extraction.
+  2. Review the extracted fields.
+  3. Paste or import the results into your finance or inventory system.
+
+- **From raw email to safe, well‑routed response**
+  1. Paste the email into the email intelligence view.
+  2. Check routing suggestions, phishing risk, and sentiment.
+  3. Use text transformation to prepare an appropriate reply in the right language and tone.
+
+- **From complex note to accessible explanation**
+  1. Paste technical or legal text into the text transformation tab.
+  2. Choose plain‑language rewrite.
+  3. Optionally translate the result so different teams can read it easily.
+
+---
+
+### Where to go next
+
+- For a concise overview of the product and its main workflows, see the root [`README.md`](../README.md).
+- For a feature‑by‑feature description with use cases, see [`LLM_FEATURE_SPECS.md`](LLM_FEATURE_SPECS.md).
+- For screenshots of the main interface, see [`GUI_SCREENSHOTS.md`](GUI_SCREENSHOTS.md).
+- For guidance on how to start using LlumDocs in your organisation, see [`INSTALL.md`](INSTALL.md).
+- For practical tips and best practices, see [`LLM_DEVELOPMENT_GUIDE.md`](LLM_DEVELOPMENT_GUIDE.md).

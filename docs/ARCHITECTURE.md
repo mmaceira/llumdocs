@@ -1,369 +1,97 @@
-# LlumDocs Architecture
+## How LlumDocs fits into your environment
 
-This document provides visual diagrams of the LlumDocs architecture and component communication flows. For detailed explanations of components, see:
-- [LLM_GUIDE_GLOBAL.md](LLM_GUIDE_GLOBAL.md) - Architecture overview and development guidelines
-- [INSTALL.md](INSTALL.md) - Setup, configuration, and environment variables
-- [LLM_FEATURE_SPECS.md](LLM_FEATURE_SPECS.md) - Feature specifications and service contracts
+This document gives a high‑level view of how you can expect to use LlumDocs in your day‑to‑day work, without going into technical details about how it is built.
 
----
+At a glance, LlumDocs usually appears in three places:
 
-## Architecture Layers
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    User Interface Layer                      │
-│  ┌──────────────────┐          ┌──────────────────┐         │
-│  │   Gradio UI      │          │   FastAPI        │         │
-│  │  (llumdocs.ui)   │          │  (llumdocs.api)  │         │
-│  └────────┬─────────┘          └────────┬─────────┘         │
-│           │                              │                   │
-│           └──────────────┬───────────────┘                   │
-└───────────────────────────┼───────────────────────────────────┘
-                            │
-┌───────────────────────────┼───────────────────────────────────┐
-│                    Service Layer                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Translation, Text Transform, Image, Email Services  │   │
-│  │              (llumdocs.services)                       │   │
-│  └───────────────────────┬───────────────────────────────┘   │
-└───────────────────────────┼───────────────────────────────────┘
-                            │
-┌───────────────────────────┼───────────────────────────────────┐
-│              LLM Abstraction Layer                            │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              llumdocs.llm                            │   │
-│  │  (Model resolution, LiteLLM wrapper, retry logic)     │   │
-│  └───────────────────────┬───────────────────────────────┘   │
-└───────────────────────────┼───────────────────────────────────┘
-                            │
-┌───────────────────────────┼───────────────────────────────────┐
-│                    Provider Layer                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
-│  │   LiteLLM    │  │   Ollama     │  │   OpenAI     │        │
-│  │  (Unified    │  │  (Local LLM) │  │  (Cloud LLM) │        │
-│  │   Interface) │  │              │  │              │        │
-│  └──────────────┘  └──────────────┘  └──────────────┘        │
-└───────────────────────────────────────────────────────────────┘
-
-┌───────────────────────────────────────────────────────────────┐
-│              Email Intelligence (Independent)                  │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  Hugging Face Transformers (Zero-shot, Phishing,     │    │
-│  │  Sentiment Analysis)                                  │    │
-│  └──────────────────────────────────────────────────────┘    │
-└───────────────────────────────────────────────────────────────┘
-```
+- as a **web application** you open in your browser,
+- as **capabilities embedded** in the tools you already use,
+- and as **automated processes** that handle documents and emails for you in the background.
 
 ---
 
-## Component Communication Overview
+### Web application: your main workspace
 
-See [LLM_GUIDE_GLOBAL.md](LLM_GUIDE_GLOBAL.md) for detailed component descriptions and development guidelines.
+When LlumDocs is available as a web app:
 
----
+- You open it in your browser through a link provided by your organisation.
+- The home screen presents several tabs or sections:
+  - Translation
+  - Text transformation
+  - Document summaries and extraction
+  - Image description
+  - Email intelligence
+- Each tab focuses on a single type of task and guides you with:
+  - a short explanation of what it does,
+  - input areas (text boxes or file uploads),
+  - and a main action button.
 
-## Communication Flow
+You can move freely between tabs. For example, you might:
 
-### High-Level Request Flow
-
-```
-User Action
-    │
-    ├─→ [Gradio UI] ──┐
-    │                  │
-    └─→ [REST API] ────┼─→ [Service Layer]
-                       │         │
-                       │         ├─→ [LLM Tasks] → llumdocs.llm → LiteLLM → Ollama/OpenAI
-                       │         │
-                       │         └─→ [Email Intelligence] → Hugging Face Transformers
-                       │
-                       └─→ Response to User
-```
-
-### Detailed Translation Flow (Example)
-
-```
-1. User enters text in Gradio UI
-   │
-2. UI handler (components.py) calls translate_text()
-   │
-3. translation_service.py:
-   │  - Validates languages
-   │  - Builds prompt
-   │  - Calls chat_completion() from llumdocs.llm
-   │
-4. llumdocs.llm.chat_completion():
-   │  - Calls resolve_model() to determine provider
-   │  - resolve_model() checks:
-   │    * LLUMDOCS_DEFAULT_MODEL env var
-   │    * Falls back to candidate list
-   │    * Returns ModelConfig with model_id and kwargs
-   │  - Calls litellm.completion() with retry logic
-   │
-5. LiteLLM:
-   │  - Detects provider from model_id ("ollama/llama3.1:8b" or "gpt-4o-mini")
-   │  - Formats request for provider
-   │  - Sends HTTP request:
-   │    * Ollama: POST ${OLLAMA_API_BASE}/api/chat
-   │    * OpenAI: POST https://api.openai.com/v1/chat/completions
-   │
-6. Provider processes request and returns response
-   │
-7. LiteLLM parses response and returns to llumdocs.llm
-   │
-8. llumdocs.llm returns text to service
-   │
-9. Service returns translated text to UI
-   │
-10. UI displays result to user
-```
-
-### Email Intelligence Flow (Example)
-
-```
-1. User enters email text in Gradio UI
-   │
-2. UI handler calls EmailIntelligenceService.analyze_email()
-   │
-3. email_intelligence_service.py:
-   │  - Checks if email intelligence is enabled
-   │  - Calls three functions:
-   │    * classify_email() → _get_zero_shot_pipeline()
-   │    * detect_phishing() → _get_phishing_pipeline()
-   │    * analyze_sentiment() → _get_sentiment_pipeline()
-   │
-4. Pipeline loading (lazy, cached):
-   │  - Checks if pipeline exists in module-level cache
-   │  - If not, loads from Hugging Face:
-   │    * Checks GPU availability
-   │    * Downloads model if not cached
-   │    * Creates pipeline (GPU if available, else CPU)
-   │    * Caches pipeline for reuse
-   │
-5. Inference:
-   │  - Truncates text to MAX_EMAIL_SEQUENCE_LENGTH (512 tokens)
-   │  - Runs pipeline inference
-   │  - Handles GPU OOM errors (falls back to CPU)
-   │
-6. Results:
-   │  - ClassificationResult (labels, scores)
-   │  - PhishingDetection (label, score, scores_by_label)
-   │  - SentimentPrediction (label, score)
-   │  - Combined into EmailInsights dataclass
-   │
-7. Returns EmailInsights to UI
-   │
-8. UI displays results to user
-```
+- summarise a long report,
+- then translate the summary,
+- and finally rewrite the result in your company’s preferred tone.
 
 ---
 
-## Component Interaction Diagrams
+### Embedded features in your existing tools
 
-### Translation Request (via API)
+LlumDocs is often connected to other systems within your organisation so that you can use its capabilities without leaving your usual workflow.
 
-```
-┌────────┐  POST /api/translate
-│ Client │─────────────────────────┐
-└────────┘                         │
-                                   ▼
-                          ┌─────────────────┐
-                          │  FastAPI        │
-                          │  /api/translate │
-                          └────────┬────────┘
-                                   │
-                                   ▼
-                          ┌─────────────────┐
-                          │ translate_text()│
-                          │ (service)       │
-                          └────────┬────────┘
-                                   │
-                                   ▼
-                          ┌─────────────────┐
-                          │ chat_completion()│
-                          │ (llumdocs.llm)  │
-                          └────────┬────────┘
-                                   │
-                                   ▼
-                          ┌─────────────────┐
-                          │   LiteLLM       │
-                          └────────┬────────┘
-                                   │
-                          ┌────────┴────────┐
-                          │                 │
-                    ┌─────▼─────┐    ┌─────▼─────┐
-                    │  Ollama   │    │  OpenAI   │
-                    │  :11434   │    │  API      │
-                    └───────────┘    └───────────┘
-                          │                 │
-                          └────────┬────────┘
-                                   │
-                          ┌────────▼────────┐
-                          │  Response      │
-                          │  (JSON)        │
-                          └────────────────┘
-```
+Depending on how it is configured, you might see:
 
-### Image Description (via UI)
+- a “Translate” or “Summarise” action next to documents, tickets, or records,
+- a “Generate reply” or “Rewrite” option inside your email or support tool,
+- an “Analyse with LlumDocs” option for uploaded files.
 
-```
-┌────────┐
-│  User  │ Uploads image
-└───┬────┘
-    │
-    ▼
-┌─────────────┐
-│  Gradio UI  │
-│  (image tab)│
-└──────┬──────┘
-       │
-       ▼
-┌──────────────────┐
-│ describe_image() │
-│ (service)        │
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐
-│ vision_completion│
-│ (llumdocs.llm)   │
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐      ┌──────────────┐
-│ resolve_vision_   │─────▶│ qwen3-vl:8b   │
-│ model()          │      │ or o4-mini    │
-└──────┬───────────┘      └──────┬───────┘
-       │                         │
-       ▼                         ▼
-┌──────────────────┐      ┌──────────────┐
-│   LiteLLM        │─────▶│  Provider    │
-└──────────────────┘      └──────────────┘
-       │
-       ▼
-┌──────────────────┐
-│  Description     │
-│  (displayed)     │
-└──────────────────┘
-```
+From your perspective:
+
+- You stay inside the application you already know.
+- LlumDocs quietly performs tasks such as translation, summarisation, or email analysis.
+- The results are shown directly in that application (for example, as text you can insert or as a side‑panel with insights).
+
+If you are not sure where LlumDocs is available, ask your internal administrator which tools have been connected.
 
 ---
 
-## Deployment Architecture
+### Automated document and email workflows
 
-### Development Setup
+In some organisations, LlumDocs runs in the background as part of larger workflows. For example:
 
-```
-┌─────────────┐
-│   User      │
-└──────┬──────┘
-       │
-       ├─→ http://localhost:7860 (Gradio UI)
-       │
-       └─→ http://localhost:8000 (FastAPI)
-              │
-              └─→ Services → llumdocs.llm → LiteLLM
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-              ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
-              │  Ollama   │   │  OpenAI  │   │ Hugging   │
-              │ localhost │   │  Cloud   │   │  Face     │
-              │  :11434   │   │   API    │   │  Models   │
-              └───────────┘   └───────────┘   └───────────┘
-```
+- Incoming documents (such as delivery notes or bank statements) may be processed automatically to extract key fields for finance systems.
+- New emails in a shared inbox may be analysed so they can be routed to the right team, checked for phishing risk, or tagged with sentiment.
+- Long reports or meeting notes may be summarised automatically and attached to records in your project or case‑management system.
 
-### Docker Compose Deployment
+In these cases, you might not interact with LlumDocs directly, but you will see its results:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Docker Network                        │
-│                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │   FastAPI    │  │   Gradio UI  │  │   Ollama     │ │
-│  │  Container   │  │  Container   │  │  Container   │ │
-│  │  Port 8000   │  │  Port 7860   │  │  Port 11434  │ │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │
-│         │                 │                  │         │
-│         └─────────────────┼──────────────────┘         │
-│                           │                            │
-│                  ┌────────▼────────┐                   │
-│                  │  Shared Volumes │                   │
-│                  │  - HF cache     │                   │
-│                  │  - Ollama models│                   │
-│                  └─────────────────┘                   │
-└─────────────────────────────────────────────────────────┘
-         │
-         └─→ External: OpenAI API (if configured)
-```
+- pre‑filled fields in forms or records,
+- automatic tags, labels, or categories,
+- and short summaries or highlights attached to items.
 
-**Key Points**:
-- Services can run in separate containers or together
-- Ollama can run in container or use host Ollama
-- Hugging Face models cached in shared volume
-- Environment variables control provider selection
+If you want to understand which automated processes involve LlumDocs, your internal contact can point you to the relevant workflows.
 
 ---
 
-## Model Resolution Flow
+### How LlumDocs communicates with other systems
 
-```
-Service calls chat_completion(model_hint)
-    │
-    ▼
-┌─────────────────────┐
-│ resolve_model()     │
-└──────────┬──────────┘
-           │
-    ┌──────┴──────┐
-    │             │
-    ▼             ▼
-┌─────────┐  ┌──────────────┐
-│ Check   │  │ Check env var│
-│ model_  │  │ LLUMDOCS_    │
-│ hint    │  │ DEFAULT_MODEL│
-└────┬────┘  └──────┬───────┘
-     │             │
-     └──────┬───────┘
-            │
-            ▼
-    ┌───────────────┐
-    │ Fallback list:│
-    │ 1. ollama/     │
-    │    llama3.1:8b │
-    │ 2. gpt-4o-mini │
-    │ 3. gpt-4o      │
-    │ 4. gpt-3.5-    │
-    │    turbo       │
-    └───────┬───────┘
-            │
-    ┌───────┴───────┐
-    │               │
-    ▼               ▼
-┌─────────┐   ┌──────────┐
-│ Ollama? │   │ OpenAI?   │
-│ Check   │   │ Check     │
-│ enabled │   │ API_KEY   │
-└────┬────┘   └─────┬─────┘
-     │              │
-     └──────┬───────┘
-            │
-            ▼
-    ┌───────────────┐
-    │ Return        │
-    │ ModelConfig   │
-    │ (model_id,    │
-    │  kwargs)      │
-    └───────────────┘
-```
+Without going into implementation details, it can be useful to know that:
 
-For environment variable details, see [INSTALL.md](INSTALL.md).
+- LlumDocs can be accessed both by humans (through a browser) and by other systems (through simple HTTP calls).
+- The same capabilities you see in the interface—translation, summaries, text rewrites, image description, document extraction, and email intelligence—can also be triggered programmatically.
+- This allows your organisation to:
+  - give you an interactive workspace for ad‑hoc tasks,
+  - and also automate repetitive flows where LlumDocs’ strengths add the most value.
+
+If you are designing business processes, you can treat LlumDocs as a “document and language assistant” that:
+
+- receives text, documents, images, or emails,
+- returns translations, summaries, descriptions, extractions, or insights,
+- and plugs these directly into your existing tools and records.
 
 ---
 
-## Related Documentation
+### Finding your way around the documentation
 
-- [INSTALL.md](INSTALL.md) - Setup, configuration, and environment variables
-- [LLM_GUIDE_GLOBAL.md](LLM_GUIDE_GLOBAL.md) - Architecture overview, component details, and development guidelines
-- [LLM_FEATURE_SPECS.md](LLM_FEATURE_SPECS.md) - Feature specifications and service contracts
-- [TESTING.md](TESTING.md) - Testing strategies and examples
+- For a tour of what each feature does, see `docs/LLM_FEATURE_SPECS.md`.
+- For a visual overview of the main screens, see `docs/GUI_SCREENSHOTS.md`.
+- For user‑centric guidance on access and usage, see `docs/INSTALL.md` and the root `README.md`.
